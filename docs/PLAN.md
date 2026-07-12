@@ -139,6 +139,8 @@ standards(id PK, standard_id, title, publisher, version, status,
 clauses(id PK, standard_id FK, clause_path, heading_trail, page, pdf_file_page,
         block_type, obligation_type, normativity, verbatim_text,
         embedding vector(768), tsv tsvector, uri, meta jsonb)
+clause_questions(id PK, clause_id FK, question, embedding vector(768))
+                                       -- Hypothetical Questions index (see 6.1)
 terms(id PK, term, definition, defined_in_clause FK)
 organizations(id PK, name, role)
 references(id PK, from_clause FK, to_standard FK NULL, to_clause FK NULL,
@@ -153,27 +155,63 @@ using Approach B's standards-appropriate relations: `SUPERSEDES`, `AMENDS`,
 
 ---
 
+## 6.1 Retrieval quality levers
+
+Neither blueprint had these three named, but they are the difference between
+"search technically works" and "search finds the right clause." All three are
+cheap relative to extraction and slot into the existing pipeline.
+
+1. **Hypothetical Questions indexing** (a.k.a. questions-answered indexing, or
+   "reverse HyDE"; LlamaIndex `QuestionsAnsweredExtractor`, LangChain MultiVector).
+   During extraction, the LLM also writes **3-5 questions each clause answers**.
+   Each question is stored as its own embedded row in `clause_questions`, pointing
+   back to its parent clause. A user query is itself a question, so matching
+   query-to-question lands far more reliably than query-to-legal-prose. Search
+   ranks over clause text **and** its questions; either hit resolves to the clause.
+   Highest-payoff lever; the marginal LLM cost rides on the extraction pass.
+
+2. **Synonym / acronym expansion.** A small domain synonym file (first form =
+   canonical): `FoP = field of play`, `run-off = clear space`, publisher acronyms.
+   Applied at query time (and to BM25 canonical tokens) so acronym <-> expansion
+   matching is consistent. Grown over time from real queries.
+
+3. **standard_id normalization.** A deterministic rule that collapses
+   `BS EN 12193:2018`, `EN 12193`, `BS EN 12193` to one canonical id, applied at
+   extract time so every clause carries the clean id and variant queries converge.
+
+---
+
 ## 7. Build order
 
 1. **Contracts + vocabulary first** (`shared/`) — the clause/document schema, the
    standards relation taxonomy, query synonyms, and the S1-S4 controlled
    vocabulary/taxonomy. Pick 2-3 representative source docs and one competency
-   question each to drive scope.
+   question each to drive scope. Start the **synonym file** and the
+   **`standard_id` normalization rule** here (6.1, levers 2-3) — both are cheap
+   config that pays off immediately once search is live.
 2. **Ingest** — one `DocumentLoader` base + one real source. Parse PDF/DOCX/HTML
    with a layout-aware parser (PyMuPDF to start) into structure-preserving JSON:
    ordered blocks with `clause_path`, `heading_trail`, `page`, `block_type`,
-   verbatim text. Mint URIs and source anchors here.
+   verbatim text. Mint URIs and source anchors here. (Corpus probe confirmed the
+   real docs are born-digital, so PyMuPDF suffices; a handful of scans/diagrams
+   get filtered out, not OCR'd, for v1.)
 3. **Extract** — the multipass LLM harness with all its infra; swap in the
    document/clause schema; enforce verbatim-faithful; add the calibration gate.
-4. **Resolve** — fuzzy + LLM + human-review dedup, with deterministic
-   `standard_id` normalization as a pre-key (strip `BS EN`, adoption suffixes,
-   year) before fuzzy matching.
+   In the **same pass**, generate the **3-5 anticipated questions per clause**
+   (6.1, lever 1) and apply `standard_id` normalization so every clause lands with
+   the clean id.
+4. **Resolve** — fuzzy + LLM + human-review dedup, keyed off the normalized
+   `standard_id` pre-key. Lower priority for a find-the-clause v1; it matters most
+   for clean cross-reference edges and facets, so it can trail the first search.
 5. **Persist** — the single Postgres schema above: FK edges, pgvector HNSW,
-   tsvector. Export Turtle. Run the dual validation gate.
-6. **Query** — the hybrid ranking algorithm re-pointed at Postgres; re-weight
-   field boosts for standards fields (`standard_id`, `clause_path`, defined term,
-   heading); add hard filters as first-class params; keep the transparent score
-   breakdown and a `/source` grounding check anchored to `clause_path`.
+   tsvector, **plus the `clause_questions` rows each with their own embedding**.
+   Export Turtle only if/when Fuseki is wanted. Run the dual validation gate.
+6. **Query** — the hybrid ranking algorithm re-pointed at Postgres, searching over
+   **clause text and `clause_questions` together** (either hit resolves to the
+   clause); re-weight field boosts for standards fields (`standard_id`,
+   `clause_path`, defined term, heading); apply **synonym expansion** at query
+   time (6.1, lever 2); add hard filters as first-class params; keep the
+   transparent score breakdown and a `/source` grounding check on `clause_path`.
 7. **Studio** — the Next.js app re-pointed at the contract; surfaces renamed to
    the domain (clause search, standard profile, reference path, defined terms /
    conflicts). Optional / last.

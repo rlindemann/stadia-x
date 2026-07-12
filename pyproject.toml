@@ -1,0 +1,14 @@
+[project]
+name = "stadia-x"
+version = "0.1.0"
+description = "Ingest policy documents and standards into structured, queryable knowledge with clause-level provenance."
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.69",
+    "pymupdf>=1.24",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[tool.setuptools]
+packages = ["shared", "ingest"]

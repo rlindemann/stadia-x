@@ -52,6 +52,7 @@ def main() -> None:
     ap.add_argument("--title", required=True)
     ap.add_argument("--publisher", default=None)
     ap.add_argument("--pdf", type=Path, default=None, help="source PDF to upload to R2")
+    ap.add_argument("--supersedes", default=None, help="standard_id this edition replaces")
     args = ap.parse_args()
 
     rows = [json.loads(line) for line in args.jsonl.open(encoding="utf-8")]
@@ -72,14 +73,19 @@ def main() -> None:
         register_vector(conn)
         with conn.cursor() as cur:
             cur.execute(
-                """insert into standards (id, title, publisher, source_url, thumb_url)
-                   values (%s, %s, %s, %s, %s)
+                """insert into standards (id, title, publisher, source_url, thumb_url, supersedes, status)
+                   values (%s, %s, %s, %s, %s, %s, %s)
                    on conflict (id) do update set title = excluded.title,
                        publisher = excluded.publisher,
                        source_url = coalesce(excluded.source_url, standards.source_url),
-                       thumb_url = coalesce(excluded.thumb_url, standards.thumb_url)""",
-                (args.standard_id, args.title, args.publisher, source_url, thumb_url),
+                       thumb_url = coalesce(excluded.thumb_url, standards.thumb_url),
+                       supersedes = coalesce(excluded.supersedes, standards.supersedes),
+                       status = coalesce(excluded.status, standards.status)""",
+                (args.standard_id, args.title, args.publisher, source_url, thumb_url,
+                 args.supersedes, "Current" if args.supersedes else None),
             )
+            if args.supersedes:
+                cur.execute("update standards set status = 'Superseded' where id = %s", (args.supersedes,))
             cur.execute("delete from clauses where standard_id = %s", (args.standard_id,))
 
             print("embedding clause text...")

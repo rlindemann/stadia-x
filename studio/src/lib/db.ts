@@ -36,6 +36,7 @@ export type SearchHit = {
   id: number;
   standard_id: string;
   standard_title: string;
+  standard_status: string | null;
   publisher: string | null;
   clause_path: string;
   heading_trail: string;
@@ -93,7 +94,7 @@ fused as (
   left join qd q on q.clause_id = i.clause_id
   left join lex l on l.clause_id = i.clause_id
 )
-select c.id, c.standard_id, s.title as standard_title, s.publisher, c.clause_path, c.heading_trail,
+select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher, c.clause_path, c.heading_trail,
        c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
        f.score::float8 as score, f.dense_rnk, f.qdense_rnk, f.lex_rnk,
@@ -129,14 +130,19 @@ export type StandardRow = {
   version: string | null;
   status: string | null;
   thumb_url: string | null;
+  superseded_by: string | null; // id of the newer edition that replaces this one
+  superseded_by_title: string | null;
   clause_count: number;
 };
 
 export function listStandards(): Promise<StandardRow[]> {
   return query<StandardRow>(
     `select s.id, s.title, s.publisher, s.version, s.status, s.thumb_url,
+            n.id as superseded_by, n.title as superseded_by_title,
             (select count(*)::int from clauses c where c.standard_id = s.id) as clause_count
-     from standards s order by s.title`,
+     from standards s
+     left join standards n on n.supersedes = s.id
+     order by s.status = 'Superseded', s.title`,
     [],
   );
 }

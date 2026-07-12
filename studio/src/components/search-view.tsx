@@ -18,6 +18,7 @@ type Hit = {
   uri: string | null;
   source_url: string | null;
   score: number;
+  standard_status: string | null;
   dense_rnk: number | null;
   qdense_rnk: number | null;
   lex_rnk: number | null;
@@ -154,6 +155,7 @@ export function SearchView() {
                   </>
                 )}
                 <span>{h.standard_title}</span>
+                {h.standard_status === "Superseded" && <span className="tag-super">Superseded</span>}
               </div>
               <div className="scores">
                 {[

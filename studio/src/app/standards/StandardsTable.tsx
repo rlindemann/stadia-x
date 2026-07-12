@@ -42,7 +42,12 @@ export function StandardsTable({ standards }: { standards: StandardRow[] }) {
                   onMouseLeave={() => setHover(null)}
                 >
                   <td className="c-code">{s.id}</td>
-                  <td className="c-title">{s.title}</td>
+                  <td className="c-title">
+                    {s.title}
+                    {s.superseded_by_title && (
+                      <span className="repl">Replaced by {s.superseded_by_title}</span>
+                    )}
+                  </td>
                   <td className="c-muted">{s.publisher ?? "—"}</td>
                   <td className="c-muted">{s.version ?? "—"}</td>
                   <td>

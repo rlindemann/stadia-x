@@ -8,6 +8,10 @@ dependencies = [
     "pymupdf>=1.24",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
+    "voyageai>=0.3",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "numpy>=1.26",
 ]
 
 [tool.setuptools]

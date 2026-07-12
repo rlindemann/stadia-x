@@ -9,7 +9,7 @@ const PdfPane = dynamic(() => import("./PdfPane"), {
 });
 
 type Clause = {
-  standard_id: string;
+  id: number;
   clause_path: string;
   heading_trail: string;
   page: number;
@@ -24,7 +24,7 @@ type Clause = {
   uri: string | null;
 };
 
-type Doc = { id: string; title: string; pdf: string; data: string; count: number };
+type Doc = { id: string; title: string; source_url: string | null; clause_count: number };
 
 const OBLIG_CLASS: Record<string, string> = {
   requirement: "ob-shall",
@@ -34,49 +34,49 @@ const OBLIG_CLASS: Record<string, string> = {
 };
 
 export default function ReviewPage() {
-  const [manifest, setManifest] = useState<Doc[] | null>(null);
+  const [docs, setDocs] = useState<Doc[] | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
   const [clauses, setClauses] = useState<Clause[]>([]);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
 
   useEffect(() => {
-    fetch("/extractions/manifest.json")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((m: Doc[]) => {
-        setManifest(m);
-        if (m[0]) setDocId(m[0].id);
+    fetch("/api/documents")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: Doc[] = d.documents ?? [];
+        setDocs(list);
+        if (list[0]) setDocId(list[0].id);
       })
-      .catch(() => setManifest([]));
+      .catch(() => setDocs([]));
   }, []);
 
-  const doc = useMemo(() => manifest?.find((d) => d.id === docId) ?? null, [manifest, docId]);
+  const doc = useMemo(() => docs?.find((d) => d.id === docId) ?? null, [docs, docId]);
 
   useEffect(() => {
-    if (!doc) return;
+    if (!docId) return;
     setClauses([]);
     setActiveIdx(null);
     setPageNumber(1);
-    fetch(`/extractions/${doc.data}`)
+    fetch(`/api/documents/${encodeURIComponent(docId)}/clauses`)
       .then((r) => r.json())
-      .then(setClauses)
+      .then((d) => setClauses(d.clauses ?? []))
       .catch(() => setClauses([]));
-  }, [doc]);
+  }, [docId]);
 
   const select = (i: number, c: Clause) => {
     setActiveIdx(i);
     setPageNumber(c.pdf_file_page + 1); // 1-based; PdfPane re-renders the page, no reload
   };
 
-  if (manifest === null) return <div className="rv-empty">Loading…</div>;
+  if (docs === null) return <div className="rv-empty">Loading…</div>;
 
-  if (manifest.length === 0)
+  if (docs.length === 0)
     return (
       <div className="rv-empty">
-        <p>No extractions found.</p>
+        <p>No documents loaded.</p>
         <p className="rv-empty-sub">
-          Run <code>uv run python -m ingest.extract &lt;pdf&gt; &lt;STANDARD_ID&gt;</code> to publish a
-          document here for review.
+          Run <code>uv run python -m ingest.load … --pdf …</code> to load a document for review.
         </p>
       </div>
     );
@@ -85,9 +85,9 @@ export default function ReviewPage() {
     <div className="rv">
       <div className="rv-bar">
         <select className="rv-select" value={docId ?? ""} onChange={(e) => setDocId(e.target.value)}>
-          {manifest.map((d) => (
+          {docs.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.title} — {d.count} clauses
+              {d.title} — {d.clause_count} clauses
             </option>
           ))}
         </select>
@@ -98,7 +98,7 @@ export default function ReviewPage() {
         <div className="rv-list">
           {clauses.map((c, i) => (
             <div
-              key={`${c.clause_path}-${i}`}
+              key={c.id}
               className={`rv-item${i === activeIdx ? " on" : ""}`}
               onClick={() => select(i, c)}
             >
@@ -145,8 +145,16 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {doc && (
-          <PdfPane fileUrl={`/extractions/${doc.pdf}`} pageNumber={pageNumber} onPageChange={setPageNumber} />
+        {doc?.source_url ? (
+          <PdfPane
+            fileUrl={`/api/documents/${encodeURIComponent(doc.id)}/pdf`}
+            pageNumber={pageNumber}
+            onPageChange={setPageNumber}
+          />
+        ) : (
+          <div className="rv-pdf">
+            <div className="rv-pdf-msg">No source PDF on file for this document.</div>
+          </div>
         )}
       </div>
     </div>

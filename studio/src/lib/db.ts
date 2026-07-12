@@ -155,3 +155,57 @@ export function listTerms(): Promise<TermRow[]> {
     [],
   );
 }
+
+export type DocRow = {
+  id: string;
+  title: string;
+  source_url: string | null;
+  clause_count: number;
+};
+
+export function listDocuments(): Promise<DocRow[]> {
+  return query<DocRow>(
+    `select s.id, s.title, s.source_url,
+            (select count(*)::int from clauses c where c.standard_id = s.id) as clause_count
+     from standards s order by s.title`,
+    [],
+  );
+}
+
+export async function standardSourceUrl(id: string): Promise<string | null> {
+  const rows = await query<{ source_url: string | null }>(
+    `select source_url from standards where id = $1`,
+    [id],
+  );
+  return rows[0]?.source_url ?? null;
+}
+
+export type ReviewClause = {
+  id: number;
+  clause_path: string;
+  heading_trail: string;
+  page: number;
+  pdf_file_page: number;
+  block_type: string;
+  obligation_type: string;
+  normativity: string;
+  verbatim_text: string;
+  defined_terms: string[];
+  uri: string | null;
+  anticipated_questions: string[];
+  references: string[];
+};
+
+export function listClauses(standardId: string): Promise<ReviewClause[]> {
+  return query<ReviewClause>(
+    `select c.id, c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.block_type,
+            c.obligation_type, c.normativity, c.verbatim_text, c.defined_terms, c.uri,
+            coalesce((select array_agg(q.question order by q.id)
+                      from clause_questions q where q.clause_id = c.id), '{}') as anticipated_questions,
+            coalesce((select array_agg(r.raw order by r.id)
+                      from refs r where r.from_clause = c.id), '{}') as "references"
+     from clauses c where c.standard_id = $1
+     order by c.pdf_file_page, c.id`,
+    [standardId],
+  );
+}

@@ -3,8 +3,7 @@ Extract a full policy/standards PDF into Clause records (shared/models.py).
 
 Parses every page with PyMuPDF, extracts each page-chunk with the LLM
 (verbatim-faithful, structured output), validates against the Clause contract,
-and writes JSONL to data/out/. Also publishes a review bundle (PDF + clauses +
-manifest entry) into studio/public/extractions/ for the studio review tab.
+and writes JSONL to data/out/. Load it into Neon with ingest/load.py.
 
     uv run python -m ingest.extract "<pdf>" <STANDARD_ID> --title "<Title>"
 """
@@ -14,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,7 +28,6 @@ load_dotenv()
 MODEL = "claude-opus-4-8"
 CHUNK_PAGES = 4  # pages per LLM call
 OUT_DIR = Path("data/out")
-REVIEW_DIR = Path("studio/public/extractions")
 
 
 class ExtractedClause(BaseModel):
@@ -130,20 +127,6 @@ def extract_chunk(client, title, standard_id, chunk) -> list[ExtractedClause]:
     return resp.parsed_output.clauses, resp.usage
 
 
-def publish(standard_id, title, pdf_path: Path, clauses: list[dict]) -> None:
-    REVIEW_DIR.mkdir(parents=True, exist_ok=True)
-    s = slug(standard_id)
-    shutil.copyfile(pdf_path, REVIEW_DIR / f"{s}.pdf")
-    (REVIEW_DIR / f"{s}.json").write_text(json.dumps(clauses, indent=2), encoding="utf-8")
-
-    manifest_path = REVIEW_DIR / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else []
-    manifest = [m for m in manifest if m["id"] != s]
-    manifest.append({"id": s, "title": title, "pdf": f"{s}.pdf", "data": f"{s}.json", "count": len(clauses)})
-    manifest.sort(key=lambda m: m["title"])
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("pdf", type=Path)
@@ -188,11 +171,9 @@ def main() -> None:
         for c in clauses:
             f.write(json.dumps(c) + "\n")
 
-    publish(args.standard_id, title, args.pdf, clauses)
     print(f"\nDone: {len(clauses)} clauses from {n_pages} pages "
           f"({skipped} skipped, {in_tok} in / {out_tok} out tokens)")
-    print(f"  -> {out}")
-    print(f"  -> {REVIEW_DIR}/  (for the studio review tab)")
+    print(f"  -> {out}   (next: load into Neon with `uv run python -m ingest.load ...`)")
 
 
 if __name__ == "__main__":

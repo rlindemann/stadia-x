@@ -23,6 +23,9 @@ import voyageai
 from dotenv import load_dotenv
 from pgvector.psycopg import register_vector
 
+from ingest.extract import slug
+from ingest.storage import upload_pdf
+
 load_dotenv()
 
 EMBED_MODEL = "voyage-3.5"
@@ -47,19 +50,26 @@ def main() -> None:
     ap.add_argument("standard_id")
     ap.add_argument("--title", required=True)
     ap.add_argument("--publisher", default=None)
+    ap.add_argument("--pdf", type=Path, default=None, help="source PDF to upload to R2")
     args = ap.parse_args()
 
     rows = [json.loads(line) for line in args.jsonl.open(encoding="utf-8")]
     print(f"loading {len(rows)} clauses for {args.standard_id}")
 
+    source_url = None
+    if args.pdf:
+        source_url = upload_pdf(args.pdf, f"{slug(args.standard_id)}.pdf")
+        print(f"uploaded PDF -> {source_url}")
+
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         register_vector(conn)
         with conn.cursor() as cur:
             cur.execute(
-                """insert into standards (id, title, publisher) values (%s, %s, %s)
+                """insert into standards (id, title, publisher, source_url) values (%s, %s, %s, %s)
                    on conflict (id) do update set title = excluded.title,
-                                                   publisher = excluded.publisher""",
-                (args.standard_id, args.title, args.publisher),
+                                                   publisher = excluded.publisher,
+                                                   source_url = coalesce(excluded.source_url, standards.source_url)""",
+                (args.standard_id, args.title, args.publisher, source_url),
             )
             cur.execute("delete from clauses where standard_id = %s", (args.standard_id,))
 

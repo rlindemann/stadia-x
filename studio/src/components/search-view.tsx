@@ -1,57 +1,90 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CLAUSES, OBLIGATION_RANK, PUBLISHERS, type Obligation, type Status } from "@/lib/data";
-import { ClauseCard } from "./clause-card";
+import { useEffect, useRef, useState } from "react";
 
-const PAGE = 6;
+type Hit = {
+  id: number;
+  standard_id: string;
+  standard_title: string;
+  publisher: string | null;
+  clause_path: string;
+  heading_trail: string;
+  page: number;
+  pdf_file_page: number;
+  obligation_type: string;
+  normativity: string;
+  verbatim_text: string;
+  defined_terms: string[];
+  uri: string | null;
+  source_url: string | null;
+  score: number;
+  dense_rnk: number | null;
+  qdense_rnk: number | null;
+  lex_rnk: number | null;
+  matched_question: string | null;
+};
+
+const OB_CLASS: Record<string, string> = {
+  requirement: "shall",
+  recommendation: "should",
+  permission: "may",
+  informative: "info",
+};
+
+const EXAMPLE = "how many dressing rooms for a double-header match";
 
 export function SearchView() {
-  const [pub, setPub] = useState("");
-  const [ob, setOb] = useState("");
-  const [status, setStatus] = useState<Status | "">("Current");
-  const [sort, setSort] = useState("rel");
-  const [shown, setShown] = useState(PAGE);
+  const [query, setQuery] = useState(EXAMPLE);
+  const [hits, setHits] = useState<Hit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ran, setRan] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(() => {
-    const rows = CLAUSES.filter(
-      (c) =>
-        (!pub || c.pub === pub) &&
-        (!ob || c.ob === (ob as Obligation)) &&
-        (!status || c.status === status)
-    );
-    rows.sort((a, b) => {
-      if (sort === "std") return a.std.localeCompare(b.std) || b.score - a.score;
-      if (sort === "ob") return OBLIGATION_RANK[b.ob] - OBLIGATION_RANK[a.ob] || b.score - a.score;
-      return b.score - a.score;
-    });
-    return rows;
-  }, [pub, ob, status, sort]);
-
-  const visible = filtered.slice(0, shown);
-
-  function onFilterChange<T>(setter: (v: T) => void) {
-    return (value: T) => {
-      setter(value);
-      setShown(PAGE);
+  // Debounced live search against /api/search.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setHits([]);
+      setRan(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}&limit=20`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) throw new Error(data.error);
+          setHits(data.results ?? []);
+          setRan(true);
+        })
+        .catch((e) => {
+          if (e.name !== "AbortError") setError(String(e.message ?? e));
+        })
+        .finally(() => setLoading(false));
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
     };
-  }
+  }, [query]);
+
+  const maxScore = hits.length ? hits[0].score : 1;
 
   return (
     <div className="stage">
       <div className="eyebrow">
-        <span className="prev">Preview data</span>
-        <span>108 standards indexed</span>
-        <span className="ln" />
-        <span>Library v0.1</span>
+        <span className="prev">Live</span>
+        <span>Hybrid search — semantic + questions + full-text</span>
       </div>
       <h1 className="title">
         Query the standards, <span className="g">down to the clause</span>.
       </h1>
       <p className="sub">
-        Semantic and keyword search across every sports-venue standard in the library, returning the
-        exact clause, its obligation level, and the source page.
+        Ask in plain language. Results are ranked by meaning, by the questions each clause answers, and
+        by wording — with the exact clause, its obligation level, and a jump to the source page.
       </p>
 
       <div className="searchbar" onClick={() => inputRef.current?.focus()}>
@@ -62,88 +95,85 @@ export function SearchView() {
         <input
           ref={inputRef}
           type="text"
-          defaultValue="minimum gangway width for spectator viewing"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
           spellCheck={false}
-          placeholder="Search across every standard..."
+          placeholder="Ask a question about the standards..."
         />
-        <kbd>/</kbd>
+        {loading && <span className="spin" />}
       </div>
 
       <div className="toolbar">
-        <div className="field">
-          <label htmlFor="f-pub">Publisher</label>
-          <div className="sel">
-            <select id="f-pub" value={pub} onChange={(e) => onFilterChange(setPub)(e.target.value)}>
-              <option value="">All publishers</option>
-              {PUBLISHERS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="f-ob">Obligation</label>
-          <div className="sel">
-            <select id="f-ob" value={ob} onChange={(e) => onFilterChange(setOb)(e.target.value)}>
-              <option value="">Any</option>
-              <option value="shall">Shall</option>
-              <option value="should">Should</option>
-              <option value="may">May</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="f-st">Status</label>
-          <div className="sel">
-            <select id="f-st" value={status} onChange={(e) => onFilterChange(setStatus)(e.target.value as Status | "")}>
-              <option value="Current">Current</option>
-              <option value="Superseded">Superseded</option>
-              <option value="">All</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="f-so">Sort by</label>
-          <div className="sel">
-            <select id="f-so" value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="rel">Relevance</option>
-              <option value="std">Standard</option>
-              <option value="ob">Obligation</option>
-            </select>
-          </div>
-        </div>
-
         <div className="tool-right">
-          <span>
-            <b>{filtered.length}</b> of 108 clauses
-          </span>
+          <span>{ran ? <><b>{hits.length}</b> clause{hits.length === 1 ? "" : "s"}</> : "Type to search"}</span>
         </div>
       </div>
 
-      <div className="synnote">
-        Query expanded with synonyms — <b>gangway</b> also matches <b>circulation route</b> and{" "}
-        <b>vomitory</b>.
-      </div>
+      {error && <div className="empty">Search error: {error}</div>}
 
       <div className="list">
-        {visible.length === 0 ? (
-          <div className="empty">No clauses match these filters.</div>
+        {ran && hits.length === 0 && !loading ? (
+          <div className="empty">No clauses match that query.</div>
         ) : (
-          visible.map((c) => <ClauseCard key={c.id} clause={c} />)
+          hits.map((h) => (
+            <article className="row" key={h.id}>
+              <div className="row-top">
+                <div className="prov">
+                  {h.publisher && (
+                    <>
+                      <span className="pub">{h.publisher}</span>
+                      <span className="sep">/</span>
+                    </>
+                  )}
+                  <span>{h.standard_title}</span>
+                </div>
+                <div className="rel">
+                  <span className="track">
+                    <i style={{ ["--w" as string]: `${(h.score / maxScore) * 100}%` }} />
+                  </span>
+                  <span className="num">{h.score.toFixed(3)}</span>
+                </div>
+              </div>
+
+              <div className="clause">
+                <span className="path">{h.clause_path}</span>
+                {h.heading_trail && <span className="ct">{h.heading_trail}</span>}
+                <span className={`ob ${OB_CLASS[h.obligation_type] ?? "info"}`}>
+                  <span className="sw" />
+                  {h.obligation_type}
+                </span>
+              </div>
+
+              <p className="quote">{h.verbatim_text}</p>
+
+              {h.matched_question && (
+                <div className="matchq">
+                  <span className="ml">Matched question</span> {h.matched_question}
+                </div>
+              )}
+
+              <div className="src">
+                {h.source_url ? (
+                  <a href={`${h.source_url}#page=${h.pdf_file_page + 1}`} target="_blank" rel="noreferrer">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 3h7v7" />
+                      <path d="M10 14 21 3" />
+                      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+                    </svg>
+                    p.{h.page}
+                  </a>
+                ) : (
+                  <span>p.{h.page}</span>
+                )}
+                <span className="signals">
+                  semantic {h.dense_rnk ?? "—"} · question {h.qdense_rnk ?? "—"} · text {h.lex_rnk ?? "—"}
+                </span>
+              </div>
+            </article>
+          ))
         )}
       </div>
-
-      {shown < filtered.length && (
-        <div className="more">
-          <button onClick={() => setShown((s) => s + PAGE)}>Load more results</button>
-        </div>
-      )}
     </div>
   );
 }

@@ -26,6 +26,7 @@ export type SearchHit = {
   id: number;
   standard_id: string;
   standard_title: string;
+  publisher: string | null;
   clause_path: string;
   heading_trail: string;
   page: number;
@@ -79,7 +80,7 @@ fused as (
   left join qd q on q.clause_id = i.clause_id
   left join lex l on l.clause_id = i.clause_id
 )
-select c.id, c.standard_id, s.title as standard_title, c.clause_path, c.heading_trail,
+select c.id, c.standard_id, s.title as standard_title, s.publisher, c.clause_path, c.heading_trail,
        c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
        f.score::float8 as score, f.dense_rnk, f.qdense_rnk, f.lex_rnk,

@@ -254,3 +254,24 @@ h1.title .g { color: var(--accent); }
   background: var(--panel); border: 1px solid var(--line);
   font-family: var(--mono); font-size: 12px; line-height: 1.45; color: var(--ink-2);
 }
+
+/* ---------------- Search: live-result extras ---------------- */
+.spin {
+  width: 15px; height: 15px; flex: none; border-radius: 50%;
+  border: 2px solid var(--line-2); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.ob.info { color: var(--muted); }
+.ob.info .sw { background: var(--faint); }
+
+.matchq {
+  margin-top: 10px; font-size: 13px; color: var(--ink-2);
+  padding: 7px 10px; background: var(--accent-wash); border-left: 2px solid var(--accent);
+}
+.matchq .ml {
+  font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--accent-2); margin-right: 8px;
+}
+.src .signals { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--faint); }

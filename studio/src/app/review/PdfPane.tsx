@@ -19,9 +19,11 @@ type Props = {
 export default function PdfPane({ fileUrl, pageNumber, onPageChange }: Props) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [width, setWidth] = useState(600);
+  const [pageInput, setPageInput] = useState(String(pageNumber));
   const paneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setNumPages(null), [fileUrl]);
+  useEffect(() => setPageInput(String(pageNumber)), [pageNumber]);
 
   useEffect(() => {
     const measure = () => {
@@ -32,6 +34,16 @@ export default function PdfPane({ fileUrl, pageNumber, onPageChange }: Props) {
     return () => window.removeEventListener("resize", measure);
   }, []);
 
+  function commitPage() {
+    const n = parseInt(pageInput, 10);
+    if (Number.isNaN(n)) {
+      setPageInput(String(pageNumber));
+      return;
+    }
+    const clamped = Math.min(Math.max(1, n), numPages ?? n);
+    onPageChange(() => clamped);
+  }
+
   return (
     <div className="rv-pdf" ref={paneRef}>
       <div className="rv-pdf-bar">
@@ -39,8 +51,23 @@ export default function PdfPane({ fileUrl, pageNumber, onPageChange }: Props) {
           ‹
         </button>
         <span className="rv-pageno">
-          Page {pageNumber}
-          {numPages ? ` / ${numPages}` : ""}
+          Page
+          <input
+            className="rv-pageinput"
+            value={pageInput}
+            inputMode="numeric"
+            aria-label="Page number"
+            onChange={(e) => setPageInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitPage();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            onBlur={commitPage}
+          />
+          {numPages ? `/ ${numPages}` : ""}
         </span>
         <button className="rv-nav" onClick={() => onPageChange((p) => Math.min(numPages ?? p, p + 1))}>
           ›

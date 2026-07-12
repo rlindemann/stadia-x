@@ -1,6 +1,16 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-export const sql = neon(process.env.DATABASE_URL!);
+// Lazy client so the build never touches DATABASE_URL at import time.
+let _sql: NeonQueryFunction<false, false> | null = null;
+function db() {
+  if (!_sql) _sql = neon(process.env.DATABASE_URL!);
+  return _sql;
+}
+
+async function query<T>(text: string, params: unknown[]): Promise<T[]> {
+  const res: unknown = await db().query(text, params);
+  return (Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as T[];
+}
 
 // Embed a search query with Voyage (same model + dimension used at load time).
 export async function embedQuery(text: string): Promise<number[]> {
@@ -97,12 +107,51 @@ limit $3
 `;
 
 export async function hybridSearch(
-  query: string,
+  queryText: string,
   embedding: number[],
   limit = 20,
 ): Promise<SearchHit[]> {
   const vec = `[${embedding.join(",")}]`;
-  const res: unknown = await sql.query(SEARCH_SQL, [vec, query, limit]);
-  const rows = Array.isArray(res) ? res : (res as { rows: unknown[] }).rows;
-  return rows as SearchHit[];
+  return query<SearchHit>(SEARCH_SQL, [vec, queryText, limit]);
+}
+
+export type StandardRow = {
+  id: string;
+  title: string;
+  publisher: string | null;
+  version: string | null;
+  status: string | null;
+  clause_count: number;
+};
+
+export function listStandards(): Promise<StandardRow[]> {
+  return query<StandardRow>(
+    `select s.id, s.title, s.publisher, s.version, s.status,
+            (select count(*)::int from clauses c where c.standard_id = s.id) as clause_count
+     from standards s order by s.title`,
+    [],
+  );
+}
+
+export type TermRow = {
+  term: string;
+  definition: string;
+  clause_path: string;
+  standard_title: string;
+  standard_id: string;
+};
+
+export function listTerms(): Promise<TermRow[]> {
+  // One row per term, preferring the actual definition clause when a term was
+  // tagged on more than one clause.
+  return query<TermRow>(
+    `select distinct on (t.term)
+            t.term, c.verbatim_text as definition, c.clause_path,
+            s.title as standard_title, s.id as standard_id
+     from terms t
+     join clauses c on c.id = t.defined_in_clause
+     join standards s on s.id = t.standard_id
+     order by t.term, (c.block_type = 'definition') desc, c.clause_path`,
+    [],
+  );
 }

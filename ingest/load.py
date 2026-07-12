@@ -58,7 +58,7 @@ def main() -> None:
 
     source_url = None
     if args.pdf:
-        source_url = upload_pdf(args.pdf, f"{slug(args.standard_id)}.pdf")
+        source_url = upload_pdf(args.pdf, f"standards/{slug(args.standard_id)}.pdf")
         print(f"uploaded PDF -> {source_url}")
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:

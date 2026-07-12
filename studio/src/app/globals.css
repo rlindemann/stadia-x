@@ -320,3 +320,6 @@ h1.title .g { color: var(--accent); }
 .sc-key { background: var(--should); }
 .sc-comb { background: var(--ink-2); }
 .score-val { font-family: var(--mono); font-size: 12px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+
+.table tbody tr.row-clickable { cursor: pointer; }
+.table tbody tr.row-clickable:hover { background: var(--accent-wash); }

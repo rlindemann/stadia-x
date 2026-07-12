@@ -15,7 +15,7 @@ export default async function StandardsPage() {
         <p className="page-sub">
           Every standard and policy document ingested into Stadia-X, with its publisher and clause
           count. {standards.length} document{standards.length === 1 ? "" : "s"}, {total} clauses indexed.
-          Hover a row to preview its title page.
+          Hover a row to preview its title page; click to open it in the viewer.
         </p>
       </div>
 

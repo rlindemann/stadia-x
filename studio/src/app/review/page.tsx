@@ -46,7 +46,9 @@ export default function ReviewPage() {
       .then((d) => {
         const list: Doc[] = d.documents ?? [];
         setDocs(list);
-        if (list[0]) setDocId(list[0].id);
+        const wanted = new URLSearchParams(window.location.search).get("doc");
+        const pick = list.find((x) => x.id === wanted) ?? list[0];
+        if (pick) setDocId(pick.id);
       })
       .catch(() => setDocs([]));
   }, []);

@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { StandardRow } from "@/lib/db";
 
 export function StandardsTable({ standards }: { standards: StandardRow[] }) {
+  const router = useRouter();
   const [hover, setHover] = useState<StandardRow | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
 
@@ -32,6 +34,9 @@ export function StandardsTable({ standards }: { standards: StandardRow[] }) {
               standards.map((s) => (
                 <tr
                   key={s.id}
+                  className="row-clickable"
+                  title="Open in the review viewer"
+                  onClick={() => router.push(`/review?doc=${encodeURIComponent(s.id)}`)}
                   onMouseEnter={() => s.thumb_url && setHover(s)}
                   onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setHover(null)}

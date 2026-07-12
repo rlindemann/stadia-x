@@ -21,6 +21,9 @@ type Hit = {
   dense_rnk: number | null;
   qdense_rnk: number | null;
   lex_rnk: number | null;
+  dense_sim: number;
+  q_sim: number | null;
+  lex_score: number;
   matched_question: string | null;
 };
 
@@ -73,7 +76,10 @@ export function SearchView() {
     runSearch(q);
   }
 
-  const maxScore = hits.length ? hits[0].score : 1;
+  // Keyword scores (ts_rank) have no fixed scale — show strength relative to the
+  // strongest keyword match in the result set.
+  const maxLex = Math.max(1e-9, ...hits.map((h) => h.lex_score));
+  const RRF_MAX = 3 / 61; // #1 in all three signals
 
   return (
     <div className="stage">
@@ -133,7 +139,11 @@ export function SearchView() {
         {searched && hits.length === 0 && !loading && (
           <div className="empty">No clauses match “{searched}”.</div>
         )}
-        {hits.map((h) => (
+        {hits.map((h) => {
+          const semantic = Math.max(h.dense_sim, h.q_sim ?? 0);
+          const keyword = h.lex_score / maxLex;
+          const combined = Math.min(1, h.score / RRF_MAX);
+          return (
           <article className="row" key={h.id}>
             <div className="row-top">
               <div className="prov">
@@ -145,11 +155,20 @@ export function SearchView() {
                 )}
                 <span>{h.standard_title}</span>
               </div>
-              <div className="rel">
-                <span className="track">
-                  <i style={{ ["--w" as string]: `${(h.score / maxScore) * 100}%` }} />
-                </span>
-                <span className="num">{Math.round((h.score / maxScore) * 100)}</span>
+              <div className="scores">
+                {[
+                  { lbl: "Semantic", v: semantic, cls: "sc-sem" },
+                  { lbl: "Keyword", v: keyword, cls: "sc-key" },
+                  { lbl: "Combined", v: combined, cls: "sc-comb" },
+                ].map((s) => (
+                  <div className="score-row" key={s.lbl}>
+                    <span className="score-lbl">{s.lbl}</span>
+                    <span className="score-bar">
+                      <i className={s.cls} style={{ ["--w" as string]: `${Math.round(s.v * 100)}%` }} />
+                    </span>
+                    <span className="score-val">{Math.round(s.v * 100)}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -183,12 +202,10 @@ export function SearchView() {
               ) : (
                 <span>p.{h.page}</span>
               )}
-              <span className="signals">
-                semantic {h.dense_rnk ?? "—"} · question {h.qdense_rnk ?? "—"} · text {h.lex_rnk ?? "—"}
-              </span>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

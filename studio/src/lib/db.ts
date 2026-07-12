@@ -47,10 +47,13 @@ export type SearchHit = {
   defined_terms: string[];
   uri: string | null;
   source_url: string | null;
-  score: number;
+  score: number; // fused RRF score
   dense_rnk: number | null; // rank from semantic search over clause text
   qdense_rnk: number | null; // rank from semantic search over anticipated questions
   lex_rnk: number | null; // rank from full-text search
+  dense_sim: number; // cosine similarity to clause text (0-1)
+  q_sim: number | null; // cosine similarity to best matching question (0-1)
+  lex_score: number; // full-text ts_rank (0 if no lexical match)
   matched_question: string | null;
 };
 
@@ -94,12 +97,16 @@ select c.id, c.standard_id, s.title as standard_title, s.publisher, c.clause_pat
        c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
        f.score::float8 as score, f.dense_rnk, f.qdense_rnk, f.lex_rnk,
-       bq.question as matched_question
+       (1 - (c.embedding <=> $1::vector))::float8 as dense_sim,
+       ts_rank(c.tsv, websearch_to_tsquery('english', $2))::float8 as lex_score,
+       bq.question as matched_question,
+       bq.q_sim
 from fused f
 join clauses c on c.id = f.clause_id
 join standards s on s.id = c.standard_id
 left join lateral (
-  select question from clause_questions cq
+  select question, (1 - (embedding <=> $1::vector))::float8 as q_sim
+  from clause_questions cq
   where cq.clause_id = c.id order by cq.embedding <=> $1::vector limit 1
 ) bq on true
 order by f.score desc

@@ -309,3 +309,14 @@ h1.title .g { color: var(--accent); }
   border: 1px solid var(--line-2); box-shadow: 0 8px 30px rgba(0,0,0,.28);
   background: var(--raised); pointer-events: none;
 }
+
+/* ---------------- Search: transparent score breakdown (semantic/keyword/combined) ---------------- */
+.scores { width: 210px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.score-row { display: grid; grid-template-columns: 66px 1fr 26px; align-items: center; gap: 9px; }
+.score-lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+.score-bar { height: 4px; background: var(--line-2); overflow: hidden; }
+.score-bar > i { display: block; height: 4px; width: var(--w, 0%); animation: grow .7s cubic-bezier(.2,.7,.2,1); }
+.sc-sem { background: var(--accent); }
+.sc-key { background: var(--should); }
+.sc-comb { background: var(--ink-2); }
+.score-val { font-family: var(--mono); font-size: 12px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }

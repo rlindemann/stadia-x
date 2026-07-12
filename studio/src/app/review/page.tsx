@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Clause = {
+  standard_id: string;
   clause_path: string;
   heading_trail: string;
   page: number;
   pdf_file_page: number;
+  block_type: string;
   verbatim_text: string;
   obligation_type: string;
   normativity: string;
   references: string[];
   defined_terms: string[];
   anticipated_questions: string[];
+  uri: string | null;
 };
 
 type Doc = { id: string; title: string; pdf: string; data: string; count: number };
@@ -29,7 +32,7 @@ export default function ReviewPage() {
   const [docId, setDocId] = useState<string | null>(null);
   const [clauses, setClauses] = useState<Clause[]>([]);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const [pdfPage, setPdfPage] = useState(1);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     fetch("/extractions/manifest.json")
@@ -53,9 +56,11 @@ export default function ReviewPage() {
       .catch(() => setClauses([]));
   }, [doc]);
 
+  // Jump the already-loaded PDF to a page via its hash — no iframe reload.
   const select = (i: number, c: Clause) => {
     setActiveIdx(i);
-    setPdfPage(c.pdf_file_page + 1); // #page is 1-based physical PDF page
+    const win = iframeRef.current?.contentWindow;
+    if (win) win.location.hash = `#page=${c.pdf_file_page + 1}&view=FitH`;
   };
 
   if (manifest === null) return <div className="rv-empty">Loading…</div>;
@@ -87,7 +92,7 @@ export default function ReviewPage() {
       <div className="rv-split">
         <div className="rv-list">
           {clauses.map((c, i) => (
-            <button
+            <div
               key={`${c.clause_path}-${i}`}
               className={`rv-item${i === activeIdx ? " on" : ""}`}
               onClick={() => select(i, c)}
@@ -97,37 +102,51 @@ export default function ReviewPage() {
                 <span className={`rv-ob ${OBLIG_CLASS[c.obligation_type] ?? "ob-info"}`}>
                   {c.obligation_type}
                 </span>
-                <span className="rv-pg">p.{c.page}</span>
+                <span className="rv-norm">{c.normativity}</span>
+                <span className="rv-type">{c.block_type}</span>
+                <span className="rv-pg">
+                  p.{c.page} · pdf {c.pdf_file_page}
+                </span>
               </div>
               {c.heading_trail && <div className="rv-trail">{c.heading_trail}</div>}
               <p className="rv-verbatim">{c.verbatim_text}</p>
-              {c.defined_terms.length > 0 && (
-                <div className="rv-meta">
-                  <span className="rv-lbl">Defines</span> {c.defined_terms.join(", ")}
-                </div>
-              )}
-              {c.references.length > 0 && (
-                <div className="rv-meta">
-                  <span className="rv-lbl">Refs</span> {c.references.join(", ")}
-                </div>
-              )}
-              {c.anticipated_questions.length > 0 && (
-                <ul className="rv-q">
-                  {c.anticipated_questions.map((q, j) => (
-                    <li key={j}>{q}</li>
-                  ))}
-                </ul>
-              )}
-            </button>
+
+              <dl className="rv-fields">
+                <dt>Defined terms</dt>
+                <dd>{c.defined_terms.length ? c.defined_terms.join(", ") : "—"}</dd>
+                <dt>References</dt>
+                <dd>{c.references.length ? c.references.join(", ") : "—"}</dd>
+                <dt>Anticipated questions</dt>
+                <dd>
+                  {c.anticipated_questions.length ? (
+                    <ul className="rv-q">
+                      {c.anticipated_questions.map((q, j) => (
+                        <li key={j}>{q}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+                <dt>URI</dt>
+                <dd className="rv-uri">{c.uri ?? "—"}</dd>
+              </dl>
+
+              <details className="rv-raw" onClick={(e) => e.stopPropagation()}>
+                <summary>Raw JSON</summary>
+                <pre>{JSON.stringify(c, null, 2)}</pre>
+              </details>
+            </div>
           ))}
         </div>
 
         <div className="rv-pdf">
           {doc && (
             <iframe
-              key={`${doc.pdf}#${pdfPage}`}
+              ref={iframeRef}
+              key={doc.pdf}
               title="source pdf"
-              src={`/extractions/${doc.pdf}#page=${pdfPage}&view=FitH`}
+              src={`/extractions/${doc.pdf}#page=1&view=FitH`}
             />
           )}
         </div>

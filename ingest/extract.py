@@ -88,11 +88,35 @@ def mint_uri(standard_id: str, clause_path: str) -> str:
 
 
 def page_chunks(pdf: fitz.Document, size: int):
-    """Yield lists of (pdf_index, text) for non-empty pages, `size` pages at a time."""
+    """Yield windows of (pdf_index, text) for non-empty pages, overlapping by one
+    page so a clause spanning a chunk boundary is fully seen in some window."""
     pages = [(i, pdf[i].get_text("text").strip()) for i in range(len(pdf))]
     pages = [(i, t) for i, t in pages if len(t) >= 50]
-    for start in range(0, len(pages), size):
+    step = max(1, size - 1)  # 1-page overlap between consecutive windows
+    for start in range(0, len(pages), step):
         yield pages[start:start + size]
+        if start + size >= len(pages):
+            break
+
+
+def dedup(clauses: list[dict]) -> list[dict]:
+    """Drop fragments and exact repeats from the page overlap: if a clause's text
+    is contained in another clause on the same or adjacent page, keep the longer."""
+    # fold smart quotes/dashes to ASCII so the same clause rendered with curly
+    # quotes in one window and straight quotes in another compares equal
+    punct = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"',
+                           "–": "-", "—": "-"})
+    norm = lambda s: re.sub(r"\s+", " ", s.translate(punct)).strip().lower()
+    order = sorted(enumerate(clauses), key=lambda kv: len(kv[1]["verbatim_text"]), reverse=True)
+    kept: list[tuple[int, dict]] = []
+    for idx, c in order:  # longest first so partials lose to the complete version
+        n = norm(c["verbatim_text"])
+        if n and any(abs(k["pdf_file_page"] - c["pdf_file_page"]) <= 1 and n in norm(k["verbatim_text"])
+                     for _, k in kept):
+            continue
+        kept.append((idx, c))
+    kept.sort(key=lambda kv: kv[0])  # restore document order
+    return [c for _, c in kept]
 
 
 def extract_chunk(client, title, standard_id, chunk) -> list[ExtractedClause]:
@@ -153,6 +177,10 @@ def main() -> None:
             clauses.append(clause.model_dump())
         print(f"pages {idxs}: +{len(extracted)} clauses (running total {len(clauses)})")
     doc.close()
+
+    before = len(clauses)
+    clauses = dedup(clauses)
+    print(f"dedup (overlap fragments/repeats): {before} -> {len(clauses)}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"{slug(args.standard_id)}.jsonl"

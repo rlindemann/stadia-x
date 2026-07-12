@@ -1,0 +1,12 @@
+# example.rq — list fragments with their source anchor and a text preview.
+# Run: stadia-query --query queries/example.rq   (or paste into the Fuseki UI)
+
+PREFIX sx:  <https://stadia.example/ontology#>
+PREFIX dct: <http://purl.org/dc/terms/>
+
+SELECT ?u ?src (SUBSTR(?t, 1, 80) AS ?preview) WHERE {
+  ?u a sx:Fragment ;
+     sx:verbatimText ?t .
+  OPTIONAL { ?u dct:source ?src }
+}
+LIMIT 20

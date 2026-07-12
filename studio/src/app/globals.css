@@ -185,8 +185,20 @@ h1.title .g { color: var(--accent); }
 
 .rv-split { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 0; }
 .rv-list { overflow-y: auto; border-right: 1px solid var(--line); padding: 12px; }
-.rv-pdf { min-height: 0; background: var(--panel); }
-.rv-pdf iframe { width: 100%; height: 100%; border: 0; display: block; }
+.rv-pdf { min-height: 0; background: var(--panel); display: flex; flex-direction: column; }
+.rv-pdf-bar {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 8px; border-bottom: 1px solid var(--line); background: var(--raised);
+}
+.rv-nav {
+  width: 30px; height: 28px; display: grid; place-items: center; cursor: pointer;
+  background: transparent; color: var(--ink-2); border: 1px solid var(--line-2); font-size: 16px;
+}
+.rv-nav:hover { color: var(--ink); border-color: var(--ink); }
+.rv-pageno { font-size: 13px; color: var(--muted); letter-spacing: .04em; min-width: 110px; text-align: center; }
+.rv-pdf-scroll { flex: 1; overflow: auto; min-height: 0; padding: 16px; display: flex; justify-content: center; }
+.rv-pdf-scroll .react-pdf__Page { box-shadow: 0 1px 8px rgba(0,0,0,.18); height: max-content; }
+.rv-pdf-msg { padding: 40px; color: var(--muted); font-size: 14px; }
 
 .rv-item {
   display: block; width: 100%; text-align: left; cursor: pointer;

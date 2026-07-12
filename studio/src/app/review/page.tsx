@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
+
+const PdfPane = dynamic(() => import("./PdfPane"), {
+  ssr: false,
+  loading: () => <div className="rv-pdf-msg">Loading PDF…</div>,
+});
 
 type Clause = {
   standard_id: string;
@@ -32,7 +38,7 @@ export default function ReviewPage() {
   const [docId, setDocId] = useState<string | null>(null);
   const [clauses, setClauses] = useState<Clause[]>([]);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [pageNumber, setPageNumber] = useState(1);
 
   useEffect(() => {
     fetch("/extractions/manifest.json")
@@ -50,17 +56,16 @@ export default function ReviewPage() {
     if (!doc) return;
     setClauses([]);
     setActiveIdx(null);
+    setPageNumber(1);
     fetch(`/extractions/${doc.data}`)
       .then((r) => r.json())
       .then(setClauses)
       .catch(() => setClauses([]));
   }, [doc]);
 
-  // Jump the already-loaded PDF to a page via its hash — no iframe reload.
   const select = (i: number, c: Clause) => {
     setActiveIdx(i);
-    const win = iframeRef.current?.contentWindow;
-    if (win) win.location.hash = `#page=${c.pdf_file_page + 1}&view=FitH`;
+    setPageNumber(c.pdf_file_page + 1); // 1-based; PdfPane re-renders the page, no reload
   };
 
   if (manifest === null) return <div className="rv-empty">Loading…</div>;
@@ -140,16 +145,9 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        <div className="rv-pdf">
-          {doc && (
-            <iframe
-              ref={iframeRef}
-              key={doc.pdf}
-              title="source pdf"
-              src={`/extractions/${doc.pdf}#page=1&view=FitH`}
-            />
-          )}
-        </div>
+        {doc && (
+          <PdfPane fileUrl={`/extractions/${doc.pdf}`} pageNumber={pageNumber} onPageChange={setPageNumber} />
+        )}
       </div>
     </div>
   );

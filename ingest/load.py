@@ -17,6 +17,7 @@ import json
 import os
 from pathlib import Path
 
+import fitz  # PyMuPDF
 import numpy as np
 import psycopg
 import voyageai
@@ -24,7 +25,7 @@ from dotenv import load_dotenv
 from pgvector.psycopg import register_vector
 
 from ingest.extract import slug
-from ingest.storage import upload_pdf
+from ingest.storage import upload_bytes, upload_pdf
 
 load_dotenv()
 
@@ -56,20 +57,28 @@ def main() -> None:
     rows = [json.loads(line) for line in args.jsonl.open(encoding="utf-8")]
     print(f"loading {len(rows)} clauses for {args.standard_id}")
 
-    source_url = None
+    source_url = thumb_url = None
     if args.pdf:
-        source_url = upload_pdf(args.pdf, f"standards/{slug(args.standard_id)}.pdf")
+        s = slug(args.standard_id)
+        source_url = upload_pdf(args.pdf, f"standards/{s}.pdf")
+        doc = fitz.open(args.pdf)
+        png = doc[0].get_pixmap(matrix=fitz.Matrix(1.3, 1.3)).tobytes("png")  # title-page thumbnail
+        doc.close()
+        thumb_url = upload_bytes(png, f"standards/{s}-thumb.png", "image/png")
         print(f"uploaded PDF -> {source_url}")
+        print(f"uploaded thumb -> {thumb_url}")
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         register_vector(conn)
         with conn.cursor() as cur:
             cur.execute(
-                """insert into standards (id, title, publisher, source_url) values (%s, %s, %s, %s)
+                """insert into standards (id, title, publisher, source_url, thumb_url)
+                   values (%s, %s, %s, %s, %s)
                    on conflict (id) do update set title = excluded.title,
-                                                   publisher = excluded.publisher,
-                                                   source_url = coalesce(excluded.source_url, standards.source_url)""",
-                (args.standard_id, args.title, args.publisher, source_url),
+                       publisher = excluded.publisher,
+                       source_url = coalesce(excluded.source_url, standards.source_url),
+                       thumb_url = coalesce(excluded.thumb_url, standards.thumb_url)""",
+                (args.standard_id, args.title, args.publisher, source_url, thumb_url),
             )
             cur.execute("delete from clauses where standard_id = %s", (args.standard_id,))
 

@@ -149,7 +149,7 @@ export function SearchView() {
                 <span className="track">
                   <i style={{ ["--w" as string]: `${(h.score / maxScore) * 100}%` }} />
                 </span>
-                <span className="num">{h.score.toFixed(3)}</span>
+                <span className="num">{Math.round((h.score / maxScore) * 100)}</span>
               </div>
             </div>
 

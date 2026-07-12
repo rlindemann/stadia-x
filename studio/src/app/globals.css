@@ -301,3 +301,11 @@ h1.title .g { color: var(--accent); }
   color: var(--ink); background: var(--panel); border: 1px solid var(--line-2); padding: 3px 4px;
 }
 .rv-pageinput:focus { outline: 0; border-color: var(--accent); }
+
+/* ---------------- Standards: hover title-page thumbnail ---------------- */
+.table tbody tr { cursor: default; }
+.thumb-pop {
+  position: fixed; z-index: 50; width: 240px; height: auto;
+  border: 1px solid var(--line-2); box-shadow: 0 8px 30px rgba(0,0,0,.28);
+  background: var(--raised); pointer-events: none;
+}

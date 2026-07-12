@@ -121,12 +121,13 @@ export type StandardRow = {
   publisher: string | null;
   version: string | null;
   status: string | null;
+  thumb_url: string | null;
   clause_count: number;
 };
 
 export function listStandards(): Promise<StandardRow[]> {
   return query<StandardRow>(
-    `select s.id, s.title, s.publisher, s.version, s.status,
+    `select s.id, s.title, s.publisher, s.version, s.status, s.thumb_url,
             (select count(*)::int from clauses c where c.standard_id = s.id) as clause_count
      from standards s order by s.title`,
     [],

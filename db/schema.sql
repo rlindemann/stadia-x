@@ -13,7 +13,8 @@ create table if not exists standards (
   jurisdiction   text,
   effective_date text,
   supersedes     text,                       -- standard_id this replaces
-  source_url     text,                       -- blob URL of the source PDF
+  source_url     text,                       -- R2 URL of the source PDF
+  thumb_url      text,                       -- R2 URL of the title-page thumbnail
   page_count     int,
   meta           jsonb not null default '{}'
 );

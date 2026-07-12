@@ -23,4 +23,13 @@ def upload_pdf(path: Path, key: str) -> str:
         str(path), os.environ["R2_BUCKET"], key,
         ExtraArgs={"ContentType": "application/pdf"},
     )
+    return _public(key)
+
+
+def upload_bytes(data: bytes, key: str, content_type: str) -> str:
+    _client().put_object(Bucket=os.environ["R2_BUCKET"], Key=key, Body=data, ContentType=content_type)
+    return _public(key)
+
+
+def _public(key: str) -> str:
     return f"{os.environ['R2_PUBLIC_BASE'].rstrip('/')}/{key}"

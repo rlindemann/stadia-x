@@ -1,4 +1,5 @@
 import { listStandards } from "@/lib/db";
+import { StandardsTable } from "./StandardsTable";
 
 export const metadata = { title: "Standards — STADIA-X" };
 export const dynamic = "force-dynamic";
@@ -14,52 +15,11 @@ export default async function StandardsPage() {
         <p className="page-sub">
           Every standard and policy document ingested into Stadia-X, with its publisher and clause
           count. {standards.length} document{standards.length === 1 ? "" : "s"}, {total} clauses indexed.
+          Hover a row to preview its title page.
         </p>
       </div>
 
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Title</th>
-              <th>Publisher</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th className="c-num">Clauses</th>
-            </tr>
-          </thead>
-          <tbody>
-            {standards.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="c-muted">
-                  No standards loaded yet.
-                </td>
-              </tr>
-            ) : (
-              standards.map((s) => (
-                <tr key={s.id}>
-                  <td className="c-code">{s.id}</td>
-                  <td className="c-title">{s.title}</td>
-                  <td className="c-muted">{s.publisher ?? "—"}</td>
-                  <td className="c-muted">{s.version ?? "—"}</td>
-                  <td>
-                    {s.status ? (
-                      <span className={`status ${s.status === "Superseded" ? "superseded" : ""}`}>
-                        <span className="sw" />
-                        {s.status}
-                      </span>
-                    ) : (
-                      <span className="c-muted">—</span>
-                    )}
-                  </td>
-                  <td className="c-num">{s.clause_count}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <StandardsTable standards={standards} />
     </div>
   );
 }

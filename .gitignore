@@ -30,3 +30,6 @@ out/
 Thumbs.db
 .idea/
 .vscode/
+
+# extracted review bundles (source PDFs + regenerable data)
+studio/public/extractions/

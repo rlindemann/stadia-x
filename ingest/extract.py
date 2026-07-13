@@ -11,6 +11,7 @@ and writes JSONL to data/out/. Load it into Neon with ingest/load.py.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import re
 from datetime import datetime, timezone
@@ -21,12 +22,15 @@ import fitz  # PyMuPDF
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
+from ingest.ocr import is_scanned, ocr_page
 from shared.models import Clause, Normativity, Obligation, Provenance
 
 load_dotenv()
 
 MODEL = "claude-opus-4-8"
-CHUNK_PAGES = 4  # pages per LLM call
+CHUNK_PAGES = 4  # pages per LLM call (auto-split smaller if a window overflows max_tokens)
+MAX_TOKENS = 16000  # per-call output cap; must stay under the SDK's non-streaming limit
+CONCURRENCY = 6  # windows extracted in parallel
 OUT_DIR = Path("data/out")
 
 
@@ -84,10 +88,21 @@ def mint_uri(standard_id: str, clause_path: str) -> str:
     return f"https://stadia.example/clause/{slug(standard_id)}/{slug(clause_path)}"
 
 
-def page_chunks(pdf: fitz.Document, size: int):
+def read_page_text(pdf: fitz.Document, i: int, ocr: bool) -> str:
+    """Text layer for a page, falling back to OCR for scanned/image-only pages."""
+    text = pdf[i].get_text("text").strip()
+    if ocr and len(text) < 50 and is_scanned(pdf[i]):
+        ocred = ocr_page(pdf[i])
+        if ocred:
+            print(f"  ocr page {i}: +{len(ocred)} chars")
+            return ocred
+    return text
+
+
+def page_chunks(pdf: fitz.Document, size: int, ocr: bool = False):
     """Yield windows of (pdf_index, text) for non-empty pages, overlapping by one
     page so a clause spanning a chunk boundary is fully seen in some window."""
-    pages = [(i, pdf[i].get_text("text").strip()) for i in range(len(pdf))]
+    pages = [(i, read_page_text(pdf, i, ocr)) for i in range(len(pdf))]
     pages = [(i, t) for i, t in pages if len(t) >= 50]
     step = max(1, size - 1)  # 1-page overlap between consecutive windows
     for start in range(0, len(pages), step):
@@ -116,54 +131,76 @@ def dedup(clauses: list[dict]) -> list[dict]:
     return [c for _, c in kept]
 
 
-def extract_chunk(client, title, standard_id, chunk) -> list[ExtractedClause]:
+async def _call(client, title, standard_id, chunk, sem):
+    """One extraction API call, holding a concurrency slot only for its duration."""
     document = "\n\n".join(f"=== PDF page index {i} ===\n{t}" for i, t in chunk)
-    resp = client.messages.parse(
-        model=MODEL,
-        max_tokens=16000,
-        messages=[{"role": "user", "content": PROMPT.format(title=title, standard_id=standard_id, document=document)}],
-        output_format=Extraction,
-    )
-    return resp.parsed_output.clauses, resp.usage
+    async with sem:
+        return await client.messages.parse(
+            model=MODEL,
+            max_tokens=MAX_TOKENS,
+            messages=[{"role": "user", "content": PROMPT.format(title=title, standard_id=standard_id, document=document)}],
+            output_format=Extraction,
+        )
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("pdf", type=Path)
-    ap.add_argument("standard_id")
-    ap.add_argument("--title", default=None)
-    args = ap.parse_args()
-    title = args.title or args.standard_id
+async def extract_window(client, title, standard_id, chunk, sem) -> tuple[list[ExtractedClause], int, int]:
+    """Extract one window. If the response is truncated (too many clauses to fit
+    max_tokens -> invalid JSON), split the window in half and extract each part,
+    recursively, until it fits. Returns (clauses, input_tokens, output_tokens)."""
+    idxs = [i for i, _ in chunk]
+    try:
+        resp = await _call(client, title, standard_id, chunk, sem)
+        print(f"pages {idxs}: +{len(resp.parsed_output.clauses)} clauses", flush=True)
+        return resp.parsed_output.clauses, resp.usage.input_tokens, resp.usage.output_tokens
+    except Exception as e:
+        if len(chunk) > 1:
+            mid = len(chunk) // 2
+            print(f"pages {idxs}: output too large, splitting {idxs[:mid]} | {idxs[mid:]}", flush=True)
+            left, right = await asyncio.gather(
+                extract_window(client, title, standard_id, chunk[:mid], sem),
+                extract_window(client, title, standard_id, chunk[mid:], sem),
+            )
+            return left[0] + right[0], left[1] + right[1], left[2] + right[2]
+        print(f"  page {idxs[0]}: extraction failed even at one page: {e}", flush=True)
+        return [], 0, 0
 
-    client = anthropic.Anthropic()
+
+async def run(args, title: str) -> None:
     prov = Provenance(extracted_by=f"stadia@{MODEL}",
                       extracted_at=datetime.now(timezone.utc).isoformat())
 
     doc = fitz.open(args.pdf)
     n_pages = len(doc)
-    clauses: list[dict] = []
-    in_tok = out_tok = skipped = 0
-    for chunk in page_chunks(doc, CHUNK_PAGES):
-        idxs = [i for i, _ in chunk]
-        extracted, usage = extract_chunk(client, title, args.standard_id, chunk)
-        in_tok += usage.input_tokens
-        out_tok += usage.output_tokens
-        for ec in extracted:
-            try:
-                clause = Clause(standard_id=args.standard_id,
-                                uri=mint_uri(args.standard_id, ec.clause_path),
-                                provenance=prov, **ec.model_dump())
-            except Exception as e:
-                skipped += 1
-                print(f"  skip {ec.clause_path}: {e}")
-                continue
-            clauses.append(clause.model_dump())
-        print(f"pages {idxs}: +{len(extracted)} clauses (running total {len(clauses)})")
+    windows = list(page_chunks(doc, args.chunk_pages, ocr=args.ocr))  # reads/OCRs all page text
     doc.close()
+    print(f"{n_pages} pages -> {len(windows)} windows; extracting up to {CONCURRENCY} in parallel", flush=True)
+
+    sem = asyncio.Semaphore(CONCURRENCY)
+    async with anthropic.AsyncAnthropic() as client:
+        results = await asyncio.gather(
+            *(extract_window(client, title, args.standard_id, w, sem) for w in windows)
+        )
+
+    extracted = [ec for r in results for ec in r[0]]
+    in_tok = sum(r[1] for r in results)
+    out_tok = sum(r[2] for r in results)
+
+    clauses: list[dict] = []
+    skipped = 0
+    for ec in extracted:
+        try:
+            clause = Clause(standard_id=args.standard_id,
+                            uri=mint_uri(args.standard_id, ec.clause_path),
+                            provenance=prov, **ec.model_dump())
+        except Exception as e:
+            skipped += 1
+            print(f"  skip {ec.clause_path}: {e}", flush=True)
+            continue
+        clauses.append(clause.model_dump())
 
     before = len(clauses)
     clauses = dedup(clauses)
-    print(f"dedup (overlap fragments/repeats): {before} -> {len(clauses)}")
+    print(f"extracted {before} clauses -> dedup (overlap fragments/repeats) -> {len(clauses)}", flush=True)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"{slug(args.standard_id)}.jsonl"
@@ -172,8 +209,21 @@ def main() -> None:
             f.write(json.dumps(c) + "\n")
 
     print(f"\nDone: {len(clauses)} clauses from {n_pages} pages "
-          f"({skipped} skipped, {in_tok} in / {out_tok} out tokens)")
-    print(f"  -> {out}   (next: load into Neon with `uv run python -m ingest.load ...`)")
+          f"({skipped} skipped, {in_tok} in / {out_tok} out tokens)", flush=True)
+    print(f"  -> {out}   (next: load into Neon with `uv run python -m ingest.load ...`)", flush=True)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("pdf", type=Path)
+    ap.add_argument("standard_id")
+    ap.add_argument("--title", default=None)
+    ap.add_argument("--ocr", action="store_true",
+                    help="OCR scanned/image-only pages (OCR_PROVIDER: tesseract|azure)")
+    ap.add_argument("--chunk-pages", type=int, default=CHUNK_PAGES,
+                    help="starting pages per LLM call; a window that overflows max_tokens is auto-split")
+    args = ap.parse_args()
+    asyncio.run(run(args, args.title or args.standard_id))
 
 
 if __name__ == "__main__":

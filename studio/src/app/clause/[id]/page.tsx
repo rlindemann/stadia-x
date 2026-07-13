@@ -1,0 +1,164 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getClauseDetail } from "@/lib/db";
+import { SaveButton } from "@/components/save-button";
+import { CopyLink } from "@/components/copy-link";
+
+export const dynamic = "force-dynamic";
+
+const OB_CLASS: Record<string, string> = {
+  requirement: "shall",
+  recommendation: "should",
+  permission: "may",
+  informative: "info",
+};
+
+export default async function ClausePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const clause = await getClauseDetail(Number(id));
+  if (!clause) notFound();
+
+  const termLink = new Map(clause.term_defs.map((t) => [t.term, t.defined_in_clause]));
+
+  return (
+    <div className="stage">
+      <div className="cd-crumbs">
+        <Link href="/">Search</Link>
+        <span className="sep">/</span>
+        <Link href={`/review?doc=${encodeURIComponent(clause.standard_id)}`}>{clause.standard_title}</Link>
+        {clause.standard_status === "Superseded" && <span className="tag-super">Superseded</span>}
+      </div>
+
+      <div className="cd-head">
+        <div className="prov">
+          {clause.publisher && (
+            <>
+              <span className="pub">{clause.publisher}</span>
+              <span className="sep">/</span>
+            </>
+          )}
+          <span>{clause.standard_title}</span>
+        </div>
+        <h1 className="cd-title">
+          <span className="path">{clause.clause_path}</span>
+          <span className={`ob ${OB_CLASS[clause.obligation_type] ?? "info"}`}>
+            <span className="sw" />
+            {clause.obligation_type}
+          </span>
+        </h1>
+        {clause.heading_trail && <p className="cd-trail">{clause.heading_trail}</p>}
+      </div>
+
+      <p className="quote cd-quote">{clause.verbatim_text}</p>
+
+      <div className="src cd-src">
+        {clause.source_url ? (
+          <a href={`${clause.source_url}#page=${clause.pdf_file_page + 1}`} target="_blank" rel="noreferrer">
+            Open source PDF — p.{clause.page}
+          </a>
+        ) : (
+          <span>p.{clause.page}</span>
+        )}
+        <Link href={`/review?doc=${encodeURIComponent(clause.standard_id)}`}>Open in Review</Link>
+        <CopyLink />
+        <SaveButton
+          clause={{
+            id: clause.id,
+            clause_path: clause.clause_path,
+            heading_trail: clause.heading_trail,
+            standard_id: clause.standard_id,
+            standard_title: clause.standard_title,
+            standard_status: clause.standard_status,
+            publisher: clause.publisher,
+            obligation_type: clause.obligation_type,
+            page: clause.page,
+            pdf_file_page: clause.pdf_file_page,
+            source_url: clause.source_url,
+            verbatim_text: clause.verbatim_text,
+          }}
+        />
+      </div>
+
+      <dl className="cd-fields">
+        <dt>Normativity</dt>
+        <dd>{clause.normativity || "—"}</dd>
+        <dt>Block type</dt>
+        <dd>{clause.block_type || "—"}</dd>
+
+        <dt>Defined terms</dt>
+        <dd>
+          {clause.defined_terms.length
+            ? clause.defined_terms.map((t, i) => {
+                const target = termLink.get(t);
+                return (
+                  <span key={t}>
+                    {i > 0 && ", "}
+                    {target ? <Link href={`/clause/${target}`}>{t}</Link> : t}
+                  </span>
+                );
+              })
+            : "—"}
+        </dd>
+
+        <dt>References</dt>
+        <dd>
+          {clause.references.length ? (
+            <ul className="cd-refs">
+              {clause.references.map((r, i) => (
+                <li key={i}>
+                  {r.to_clause ? (
+                    <Link href={`/clause/${r.to_clause}`}>{r.raw ?? r.to_clause_path ?? "reference"}</Link>
+                  ) : r.to_standard ? (
+                    <Link href={`/review?doc=${encodeURIComponent(r.to_standard)}`}>
+                      {r.raw ?? r.to_standard_title ?? r.to_standard}
+                    </Link>
+                  ) : (
+                    <span>{r.raw ?? "—"}</span>
+                  )}
+                  {r.reference_type && <span className="cd-reftype"> · {r.reference_type}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            "—"
+          )}
+        </dd>
+
+        <dt>Anticipated questions</dt>
+        <dd>
+          {clause.questions.length ? (
+            <ul className="cd-q">
+              {clause.questions.map((q, i) => (
+                <li key={i}>{q}</li>
+              ))}
+            </ul>
+          ) : (
+            "—"
+          )}
+        </dd>
+
+        <dt>URI</dt>
+        <dd className="cd-uri">{clause.uri ?? "—"}</dd>
+      </dl>
+
+      <nav className="cd-neighbours">
+        {clause.prev ? (
+          <Link href={`/clause/${clause.prev.id}`} className="cd-nb prev">
+            <span className="cd-nb-lbl">Previous</span>
+            <span className="path">{clause.prev.clause_path}</span>
+          </Link>
+        ) : (
+          <span />
+        )}
+        {clause.next ? (
+          <Link href={`/clause/${clause.next.id}`} className="cd-nb next">
+            <span className="cd-nb-lbl">Next</span>
+            <span className="path">{clause.next.clause_path}</span>
+          </Link>
+        ) : (
+          <span />
+        )}
+      </nav>
+    </div>
+  );
+}

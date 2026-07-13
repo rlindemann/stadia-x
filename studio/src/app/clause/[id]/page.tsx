@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getClauseDetail } from "@/lib/db";
+import { getClauseDetail, getClauseGraph, type GraphNeighbour } from "@/lib/db";
 import { SaveButton } from "@/components/save-button";
 import { CopyLink } from "@/components/copy-link";
 
@@ -13,10 +13,25 @@ const OB_CLASS: Record<string, string> = {
   informative: "info",
 };
 
+const EDGE_GROUPS: { type: string; label: string }[] = [
+  { type: "reference", label: "References" },
+  { type: "defines_term", label: "Defines terms used here" },
+  { type: "supersedes", label: "Same clause in another edition" },
+  { type: "similar", label: "Related in meaning" },
+];
+
 export default async function ClausePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const clause = await getClauseDetail(Number(id));
   if (!clause) notFound();
+
+  const graph = await getClauseGraph(clause.id, 1);
+  const byType = new Map<string, GraphNeighbour[]>();
+  for (const g of graph) {
+    const arr = byType.get(g.edge_type) ?? [];
+    arr.push(g);
+    byType.set(g.edge_type, arr);
+  }
 
   const termLink = new Map(clause.term_defs.map((t) => [t.term, t.defined_in_clause]));
 
@@ -140,6 +155,26 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
         <dt>URI</dt>
         <dd className="cd-uri">{clause.uri ?? "—"}</dd>
       </dl>
+
+      {graph.length > 0 && (
+        <div className="cd-graph">
+          <div className="cd-graph-lbl">Related via graph — {graph.length} clause{graph.length === 1 ? "" : "s"} one hop away</div>
+          {EDGE_GROUPS.filter((g) => byType.has(g.type)).map((g) => (
+            <div className="cd-graph-grp" key={g.type}>
+              <div className={`cd-graph-type t-${g.type}`}>{g.label}</div>
+              <div className="cd-graph-items">
+                {byType.get(g.type)!.map((n) => (
+                  <Link key={`${n.id}-${g.type}`} href={`/clause/${n.id}`} className="cd-graph-item">
+                    <span className="path">{n.clause_path}</span>
+                    {n.standard_id !== clause.standard_id && <span className="cd-graph-std">{n.standard_title}</span>}
+                    <span className="cd-graph-text">{n.verbatim_text.slice(0, 90)}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <nav className="cd-neighbours">
         {clause.prev ? (

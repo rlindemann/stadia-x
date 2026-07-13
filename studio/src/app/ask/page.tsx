@@ -20,6 +20,14 @@ type AskResult = {
   sufficient: boolean;
   answer: string;
   clauses: Clause[];
+  expanded?: { id: number; edge_type: string }[];
+};
+
+const EDGE_LABEL: Record<string, string> = {
+  reference: "via reference",
+  supersedes: "other edition",
+  defines_term: "defines term",
+  similar: "related",
 };
 
 const EXAMPLES = [
@@ -82,6 +90,13 @@ export default function AskPage() {
     return ids.map((id) => byId.get(id)!);
   }, [result, byId]);
 
+  // Clauses that entered the answer via a graph hop (not direct retrieval).
+  const graphEdge = useMemo(() => {
+    const m = new Map<number, string>();
+    result?.expanded?.forEach((e) => m.set(e.id, e.edge_type));
+    return m;
+  }, [result]);
+
   return (
     <div className="stage">
       <div className="eyebrow">
@@ -92,7 +107,8 @@ export default function AskPage() {
       </h1>
       <p className="sub">
         Ask a compliance question in plain language. The answer is written only from the retrieved
-        clauses, and every claim links to the exact clause and its source page.
+        clauses — plus the clauses they reference, define, or supersede, reached by hopping the
+        knowledge graph — with every claim linked to its exact clause and source page.
       </p>
 
       <form className="searchbar" onSubmit={onSubmit}>
@@ -146,6 +162,9 @@ export default function AskPage() {
                     <span className="ask-source-prov">
                       {c.publisher ? `${c.publisher} · ` : ""}{c.standard_title}
                     </span>
+                    {graphEdge.has(c.id) && (
+                      <span className="ask-graph-tag">graph · {EDGE_LABEL[graphEdge.get(c.id)!] ?? "related"}</span>
+                    )}
                     {c.standard_status === "Superseded" && <span className="tag-super">Superseded</span>}
                   </div>
                   <p className="ask-source-text">{c.verbatim_text}</p>

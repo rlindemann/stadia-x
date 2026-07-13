@@ -24,6 +24,7 @@ import voyageai
 from dotenv import load_dotenv
 from pgvector.psycopg import register_vector
 
+from ingest.build_graph import main as build_graph
 from ingest.extract import slug
 from ingest.storage import upload_bytes, upload_pdf
 
@@ -124,6 +125,10 @@ def main() -> None:
                     )
         conn.commit()
     print(f"done: {len(rows)} clauses, {len(q_pairs)} questions loaded.")
+
+    # Refresh the GraphRAG edges so multi-hop traversal reflects the new clauses.
+    print("rebuilding knowledge-graph edges...")
+    build_graph()
 
 
 if __name__ == "__main__":

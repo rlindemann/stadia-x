@@ -64,6 +64,18 @@ create table if not exists refs (
   raw            text                          -- original reference string
 );
 
+-- Typed clause knowledge-graph edges for GraphRAG multi-hop traversal
+-- (recursive CTEs; no triplestore). Rebuilt by ingest/build_graph.py.
+--   reference | supersedes | defines_term | similar
+create table if not exists clause_edges (
+  src_clause bigint not null references clauses(id) on delete cascade,
+  dst_clause bigint not null references clauses(id) on delete cascade,
+  edge_type  text   not null,
+  weight     real   not null default 1,
+  meta       jsonb  not null default '{}',
+  primary key (src_clause, dst_clause, edge_type)
+);
+
 -- Indexes: HNSW cosine for semantic, GIN for full-text, plain for facets.
 create index if not exists clauses_embedding_idx on clauses using hnsw (embedding vector_cosine_ops);
 create index if not exists clause_questions_embedding_idx on clause_questions using hnsw (embedding vector_cosine_ops);
@@ -71,3 +83,5 @@ create index if not exists clauses_tsv_idx on clauses using gin (tsv);
 create index if not exists clauses_standard_idx on clauses (standard_id);
 create index if not exists clauses_obligation_idx on clauses (obligation_type);
 create index if not exists clause_questions_clause_idx on clause_questions (clause_id);
+create index if not exists clause_edges_src_idx on clause_edges (src_clause);
+create index if not exists clause_edges_dst_idx on clause_edges (dst_clause);

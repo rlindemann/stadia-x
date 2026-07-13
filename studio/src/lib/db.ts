@@ -400,6 +400,77 @@ export async function getEditionPair(currentId: string): Promise<EditionPair | n
   };
 }
 
+export type GraphNeighbour = {
+  id: number;
+  clause_path: string;
+  standard_id: string;
+  standard_title: string;
+  standard_status: string | null;
+  obligation_type: string;
+  page: number;
+  pdf_file_page: number;
+  source_url: string | null;
+  verbatim_text: string;
+  edge_type: string; // reference | supersedes | defines_term | similar
+  weight: number;
+  depth: number;
+};
+
+// Multi-hop neighbours of a clause over the typed knowledge graph (recursive CTE).
+// One row per (neighbour, edge_type), shallowest/strongest first.
+export function getClauseGraph(clauseId: number, depth = 1): Promise<GraphNeighbour[]> {
+  return query<GraphNeighbour>(
+    `with recursive walk as (
+       select e.dst_clause as cid, e.edge_type, e.weight, 1 as depth,
+              array[e.src_clause, e.dst_clause] as path
+       from clause_edges e where e.src_clause = $1
+       union all
+       select e.dst_clause, e.edge_type, e.weight, w.depth + 1, w.path || e.dst_clause
+       from walk w join clause_edges e on e.src_clause = w.cid
+       where w.depth < $2 and e.dst_clause <> all(w.path)
+     ),
+     best as (
+       select distinct on (cid, edge_type) cid, edge_type, weight, depth
+       from walk order by cid, edge_type, depth, weight desc
+     )
+     select c.id, c.clause_path, c.standard_id, s.title as standard_title, s.status as standard_status,
+            c.obligation_type, c.page, c.pdf_file_page, s.source_url, c.verbatim_text,
+            b.edge_type, b.weight::float8 as weight, b.depth
+     from best b
+     join clauses c on c.id = b.cid
+     join standards s on s.id = c.standard_id
+     where ${PUBLISHED}
+     order by b.depth, array_position(array['reference','supersedes','defines_term','similar'], b.edge_type), b.weight desc
+     limit 80`,
+    [clauseId, depth],
+  );
+}
+
+// GraphRAG expansion: given the seed clauses a query retrieved, pull their
+// direct graph neighbours (precise edges first) to widen the answer context
+// with clauses the seeds depend on / define / supersede — the multi-hop that
+// flat search misses. Returns SearchHit-shaped rows (score 0; they are context,
+// not ranked hits).
+export function graphExpand(seedIds: number[], limit = 8): Promise<SearchHit[]> {
+  if (seedIds.length === 0) return Promise.resolve([]);
+  return query<SearchHit>(
+    `select distinct on (c.id)
+            c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity,
+            c.verbatim_text, c.defined_terms, c.uri, s.source_url,
+            0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
+            0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score,
+            e.edge_type as matched_question
+     from clause_edges e
+     join clauses c on c.id = e.dst_clause
+     join standards s on s.id = c.standard_id
+     where e.src_clause = any($1) and c.id <> all($1) and ${PUBLISHED}
+     order by c.id, array_position(array['reference','supersedes','defines_term','similar'], e.edge_type), e.weight desc
+     limit $2`,
+    [seedIds, limit],
+  );
+}
+
 export type ClauseRef = {
   raw: string | null;
   reference_type: string | null;

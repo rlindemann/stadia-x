@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
+import { embedQuery, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
+
+const EDGE_LABEL: Record<string, string> = {
+  reference: "referenced by a retrieved clause",
+  supersedes: "the same clause in another edition",
+  defines_term: "defines a term a retrieved clause uses",
+  similar: "closely related in meaning",
+};
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +53,7 @@ export async function POST(req: NextRequest) {
   const question = typeof body.question === "string" ? body.question.trim() : "";
   if (!question) return NextResponse.json({ error: "question required" }, { status: 400 });
   const filters: SearchFilters = (body.filters as SearchFilters) ?? {};
+  const hop = body.hop !== false; // GraphRAG expansion on by default
 
   try {
     const { lexQuery } = expandLexicalQuery(question);
@@ -57,8 +65,27 @@ export async function POST(req: NextRequest) {
         sufficient: false,
         answer: "No sufficient basis in the corpus to answer this question.",
         clauses: [],
+        expanded: [],
       });
     }
+
+    // GraphRAG: hop one step from the retrieved seeds to pull in clauses they
+    // depend on / define / supersede — the multi-hop flat search misses.
+    const seen = new Set(hits.map((h) => h.id));
+    const expanded = hop
+      ? (await graphExpand(hits.map((h) => h.id), 8)).filter((e) => !seen.has(e.id))
+      : [];
+
+    const relatedBlock = expanded.length
+      ? `\n\nAdditional clauses reached via the knowledge graph (${expanded.length}); use them to complete or qualify the answer, and cite them the same way:\n\n` +
+        expanded
+          .map((h) => {
+            const status = h.standard_status === "Superseded" ? " (SUPERSEDED)" : "";
+            const why = EDGE_LABEL[h.matched_question ?? ""] ?? "related";
+            return `[[${h.id}]] (${why}) ${h.standard_title}${status} — ${h.clause_path}: ${h.verbatim_text}`;
+          })
+          .join("\n\n")
+      : "";
 
     const client = new Anthropic();
     const msg = await client.messages.create({
@@ -69,7 +96,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}`,
+          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}`,
         },
       ],
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
@@ -78,11 +105,12 @@ export async function POST(req: NextRequest) {
     const text = msg.content.find((b) => b.type === "text");
     const parsed = text ? JSON.parse(text.text) : { sufficient: false, answer: "" };
 
-    // Return the retrieved clauses so the client can resolve [[id]] citation markers.
+    // Return seeds + graph-expanded clauses so the client can resolve every [[id]].
     return NextResponse.json({
       sufficient: parsed.sufficient,
       answer: parsed.answer,
-      clauses: hits,
+      clauses: [...hits, ...expanded],
+      expanded: expanded.map((e) => ({ id: e.id, edge_type: e.matched_question })),
     });
   } catch (e) {
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });

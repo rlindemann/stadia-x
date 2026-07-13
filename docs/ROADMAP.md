@@ -40,10 +40,10 @@ Feasible now: retrieval + Anthropic already in place.
 - Guardrail: if nothing relevant is retrieved, say so rather than inventing an answer.
 
 **Acceptance criteria:**
-- [ ] Answer cites at least one real clause id for every factual sentence.
-- [ ] Each citation links to the clause and opens the source PDF at the right page.
-- [ ] "No sufficient basis in the corpus" response when retrieval is weak (no hallucinated rules).
-- [ ] Superseded clauses are flagged in the answer or excluded by default.
+- [x] Answer cites at least one real clause id for every factual sentence.
+- [x] Each citation links to the clause and opens the source PDF at the right page.
+- [x] "No sufficient basis in the corpus" response when retrieval is weak (no hallucinated rules).
+- [x] Superseded clauses are flagged in the answer or excluded by default.
 
 ---
 
@@ -53,26 +53,26 @@ Feasible now: retrieval + Anthropic already in place.
 **What:** Filter results by obligation (shall/should/may/informative), status (current/superseded),
 publisher, and standard.
 **Why:** #1 daily compliance need ("only binding, current requirements"). All fields already on each clause.
-- [ ] Facet controls on the Search tab (multi-select).
-- [ ] Filters apply server-side in the search query, not just client hiding.
-- [ ] "Current only" default toggle.
+- [x] Facet controls on the Search tab (multi-select).
+- [x] Filters apply server-side in the search query, not just client hiding.
+- [x] "Current only" default toggle.
 
 ### Clause detail pages + cross-reference links  (Effort: M)
 **What:** Permalink page per clause: full text, obligation, provenance, defined terms, anticipated
 questions, neighbouring clauses, and references rendered as clickable links.
 **Why:** Traceability enterprises demand; makes the reference graph navigable (refs are stored but inert today).
-- [ ] Route `/clause/[id]` with full clause detail.
-- [ ] References resolve to linked standards/clauses where identifiable.
-- [ ] Deep-links from search results and the review tab.
+- [x] Route `/clause/[id]` with full clause detail.
+- [x] References resolve to linked standards/clauses where identifiable.
+- [x] Deep-links from search results and the review tab.
 
 ### Current-over-superseded ranking  (Effort: S)
 **What:** Rank current-edition clauses above superseded ones (status already wired).
-- [ ] Superseded clauses de-ranked (not hidden) in default search.
+- [x] Superseded clauses de-ranked (not hidden) in default search.
 
 ### Synonym / acronym expansion  (Effort: S-M)
 **What:** Domain synonym file (FoP = field of play, run-off = clear space, publisher acronyms) applied at
 query time to improve recall. (Planned in PLAN.md 6.1, not yet wired.)
-- [ ] `shared/query_synonyms` file; query expanded before search.
+- [x] `shared/query_synonyms` file; query expanded before search. (implemented as `studio/src/lib/synonyms.ts`, applied to the lexical query)
 
 ---
 
@@ -87,25 +87,25 @@ audit, and any real rollout (site is currently fully public).
 ### Admin "Add a standard" flow  (Effort: L)
 **What:** Browser upload -> auto-extract -> review/approve -> publish, replacing the CLI. The Review tab is
 already the approval step.
-- [ ] Upload a PDF in the app; extraction runs (queued/background).
-- [ ] Extracted clauses land in a "pending review" state; approve to publish to search.
-- [ ] Set title/publisher/supersedes in the UI.
+- [x] Upload a PDF in the app; extraction runs (self-hosted via `LOCAL_INGEST=1`; CLI otherwise).
+- [x] Extracted clauses land in a "pending review" state; approve to publish to search.
+- [x] Set title/publisher/supersedes in the UI.
 
 ### Collections / projects + notes  (Effort: M)
 **What:** Save clauses into named sets ("Project X - pitch compliance"); add notes. The "Saved" tab made real.
-- [ ] Create/rename/delete collections; add/remove clauses.
-- [ ] Per-clause notes, scoped to the user/collection.
+- [x] Create/rename/delete collections; add/remove clauses.
+- [x] Per-clause notes, scoped to the user/collection. (localStorage-backed; auth deferred)
 
 ### Export to compliance report  (Effort: M)
 **What:** Select clauses (or a collection) -> generate a cited PDF/Word report.
-- [ ] Export a collection to a formatted document with clause text + citations + source pages.
+- [x] Export a collection to a formatted document with clause text + citations + source pages. (PDF + Word)
 
 ### Audit log  (Effort: S-M)
 **What:** Record who searched / added / approved / exported what.
 - [ ] Append-only log of key actions with user + timestamp.
 
 ### Shareable links  (Effort: S)
-- [ ] Share a search or a clause via URL (respecting auth).
+- [x] Share a search or a clause via URL (site is public; auth deferred).
 
 ---
 
@@ -114,8 +114,8 @@ already the approval step.
 ### Edition comparison (clause-level diff)  (Effort: L)
 **What:** Side-by-side "what changed between edition A and B", matching clauses across editions.
 This is clause-level version tracing (document-level supersession already shipped).
-- [ ] Match clauses across two editions of the same standard.
-- [ ] Show added / removed / changed clauses with a text diff.
+- [x] Match clauses across two editions of the same standard.
+- [x] Show added / removed / changed clauses with a text diff.
 
 ### Cross-standard comparison  (Effort: L)
 **What:** Compare how different standards (FIFA vs AFC vs UEFA) treat the same topic.
@@ -147,5 +147,5 @@ Move **Review** and the new **Add-a-standard** under an **Admin** area (behind a
 
 - Which SSO provider(s) do the target users have (Google Workspace, Microsoft Entra)?
 - Should superseded clauses be hidden by default or shown-but-tagged? (currently shown + tagged)
-- Report export format priority: PDF, Word, or both?
+- Report export format priority: PDF, Word, or both? (resolved: both shipped)
 - Corpus scale target: how many standards/documents in the first enterprise deployment?

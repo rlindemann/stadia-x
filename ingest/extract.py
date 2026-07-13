@@ -21,6 +21,7 @@ import fitz  # PyMuPDF
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
+from ingest.ocr import is_scanned, ocr_page
 from shared.models import Clause, Normativity, Obligation, Provenance
 
 load_dotenv()
@@ -84,10 +85,21 @@ def mint_uri(standard_id: str, clause_path: str) -> str:
     return f"https://stadia.example/clause/{slug(standard_id)}/{slug(clause_path)}"
 
 
-def page_chunks(pdf: fitz.Document, size: int):
+def read_page_text(pdf: fitz.Document, i: int, ocr: bool) -> str:
+    """Text layer for a page, falling back to OCR for scanned/image-only pages."""
+    text = pdf[i].get_text("text").strip()
+    if ocr and len(text) < 50 and is_scanned(pdf[i]):
+        ocred = ocr_page(pdf[i])
+        if ocred:
+            print(f"  ocr page {i}: +{len(ocred)} chars")
+            return ocred
+    return text
+
+
+def page_chunks(pdf: fitz.Document, size: int, ocr: bool = False):
     """Yield windows of (pdf_index, text) for non-empty pages, overlapping by one
     page so a clause spanning a chunk boundary is fully seen in some window."""
-    pages = [(i, pdf[i].get_text("text").strip()) for i in range(len(pdf))]
+    pages = [(i, read_page_text(pdf, i, ocr)) for i in range(len(pdf))]
     pages = [(i, t) for i, t in pages if len(t) >= 50]
     step = max(1, size - 1)  # 1-page overlap between consecutive windows
     for start in range(0, len(pages), step):
@@ -132,6 +144,8 @@ def main() -> None:
     ap.add_argument("pdf", type=Path)
     ap.add_argument("standard_id")
     ap.add_argument("--title", default=None)
+    ap.add_argument("--ocr", action="store_true",
+                    help="OCR scanned/image-only pages (OCR_PROVIDER: tesseract|azure)")
     args = ap.parse_args()
     title = args.title or args.standard_id
 
@@ -143,7 +157,7 @@ def main() -> None:
     n_pages = len(doc)
     clauses: list[dict] = []
     in_tok = out_tok = skipped = 0
-    for chunk in page_chunks(doc, CHUNK_PAGES):
+    for chunk in page_chunks(doc, CHUNK_PAGES, ocr=args.ocr):
         idxs = [i for i, _ in chunk]
         extracted, usage = extract_chunk(client, title, args.standard_id, chunk)
         in_tok += usage.input_tokens

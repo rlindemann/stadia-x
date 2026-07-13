@@ -6,11 +6,14 @@ import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
+  { href: "/ask", label: "Ask" },
   { href: "/", label: "Search" },
   { href: "/standards", label: "Standards" },
+  { href: "/analyze", label: "Analyze" },
   { href: "/terms", label: "Defined terms" },
+  { href: "/collections", label: "Collections" },
   { href: "/review", label: "Review" },
-  { href: "/saved", label: "Saved" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export function Header() {

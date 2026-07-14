@@ -77,6 +77,7 @@ def detect(page: fitz.Page) -> list[fitz.Rect]:
     rects: list[fitz.Rect] = [d["rect"] for d in page.get_drawings()]
     for xref, *_ in page.get_images(full=True):
         rects.extend(page.get_image_rects(xref))
+    rects = [rc for rc in rects if rc.get_area() < 0.5 * W * H]  # drop page-scale background fills
 
     def mark(rc: fitz.Rect):
         c0, c1 = int(rc.x0 // CELL), int(rc.x1 // CELL)
@@ -139,7 +140,7 @@ def main() -> None:
         per_page[i] = figs
         for r in figs:
             sig_pages.setdefault(sig(r), set()).add(i)
-    chrome = {s for s, pages in sig_pages.items() if len(pages) >= REPEAT_MIN}
+    chrome = {s for s, pages in sig_pages.items() if len(pages) >= REPEAT_MIN and s[2] * 12 < 300}
     kept: dict[int, list[fitz.Rect]] = {i: [r for r in figs if sig(r) not in chrome] for i, figs in per_page.items()}
 
     # Pass 2: render clean individual crops (before any overlay drawing).

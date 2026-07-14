@@ -101,6 +101,11 @@ def detect(page: fitz.Page) -> list[fitz.Rect]:
     rects = [d["rect"] for d in page.get_drawings()]
     for xref, *_ in page.get_images(full=True):
         rects.extend(page.get_image_rects(xref))
+    # Drop page-scale background/frame fills (some editions draw a full-page
+    # background as one big vector rect) so they don't swamp the coverage grid
+    # and collapse every table into one whole-page blob.
+    page_area = W * H
+    rects = [rc for rc in rects if rc.get_area() < 0.5 * page_area]
     for rc in rects:
         c0, c1 = int(rc.x0 // CELL), int(rc.x1 // CELL)
         r0, r1 = int(rc.y0 // CELL), int(rc.y1 // CELL)
@@ -245,7 +250,9 @@ def run(pdf_path: str, standard_id: str) -> None:
             for i, figs in per_page.items():
                 for r in figs:
                     sig_pages.setdefault(_sig(r), set()).add(i)
-            chrome = {sg for sg, ps in sig_pages.items() if len(ps) >= REPEAT_MIN}
+            # Repeating signature = chrome only if it is SMALL (logo/footer); wide
+            # content tables often repeat at the same size and must be kept.
+            chrome = {sg for sg, ps in sig_pages.items() if len(ps) >= REPEAT_MIN and sg[2] * 12 < 300}
             kept = {i: [r for r in figs if _sig(r) not in chrome] for i, figs in per_page.items()}
 
             # group into table units, stitching page-split continuations

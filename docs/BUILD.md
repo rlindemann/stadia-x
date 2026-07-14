@@ -185,9 +185,11 @@ Prereqs: `git`, `uv` (Python), `node`.
 8. **Figures/tables refinements.** (a) The false-positive gate is the vision model's structured
    `is_content` verdict (reliable); a cheap geometric pre-gate was tried and removed - it
    rejected genuine tables that lack a strong vector grid, so we transcribe candidates and let
-   the model decide (a few wasted vision calls on text regions, but 100% precision). (b) The ✓/△
-   **legend** is inferred by convention, not read from the doc - capture the legend once (usually
-   an early page) and pass it as context to the vision prompt. (c) `kind` (table vs figure) is a
+   the model decide (a few wasted vision calls on text regions, but 100% precision). (b) The symbol
+   **legend** is now captured (`find_legend` renders the doc's "classification system" note - AFC:
+   ✓ mandatory, ✗ non-applicable, △ best practice) and passed as a first image to each
+   transcription, so cells are labelled with the document's own terms (2026 found; 2021/24051 have
+   no such legend and fall back to transcribing symbols as seen). (c) `kind` (table vs figure) is a
    rough `_grid_lines` heuristic; some tables get labelled `figure` (cosmetic - transcription is
    correct either way).
 9. **OCR activation** if scanned PDFs must be ingested (install Tesseract or wire Azure creds).

@@ -60,10 +60,12 @@ Set is_content=true only for genuine tables/diagrams; set is_content=false for p
 If is_content is true, transcribe it faithfully and completely into `transcription` - do not
 summarise, infer, or omit any row or column:
 1. A GitHub-flavoured markdown table (or a clear description for a diagram), preserving every row
-   label, column header, and cell. Represent a tick as REQUIRED and a triangle as RECOMMENDED where
-   those symbols appear (usual legend: tick = required, triangle = recommended).
-2. Then one line per row in plain English (e.g. "Player-escort room: required for CAT A, B, C;
-   recommended for CAT D, E").
+   label, column header, and cell. If a legend image is provided above, use it to interpret each
+   symbol exactly as the document defines it; write the meaning in words in every cell (e.g.
+   "mandatory" / "not applicable" / "best practice"). If no legend is provided, transcribe the
+   symbols as seen.
+2. Then one line per row in plain English (e.g. "Player-escort room: mandatory for CAT A, B, C;
+   best practice for CAT D, E").
 
 If is_content is false, leave `transcription` empty. Use ONLY what is visible in the image."""
 
@@ -206,18 +208,50 @@ def owning_clause(label_ys: dict[str, float], path_to_id: dict[str, int], top_y:
 
 
 # ----------------------------- transcription + embed -----------------------------
-def transcribe(img: Image.Image) -> tuple[bool, str]:
-    """Return (is_content, transcription). is_content is the model's structured
-    verdict on whether the region is a real table/diagram vs plain text."""
+LEGEND_START = ("classification system", "the following symbols", "mandatory or applicable")
+LEGEND_END = ("avoidance of doubt", "order of precedence")
+
+
+def find_legend(doc: fitz.Document) -> Image.Image | None:
+    """The symbol legend (what tick/cross/triangle mean) so the model interprets
+    table cells exactly as the document defines them, not by convention. Usually a
+    'classification system' note on an early page."""
+    for i in range(min(len(doc), 12)):
+        page = doc[i]
+        blocks = page.get_text("blocks")
+        start = next((b[1] for b in blocks if any(m in b[4].lower() for m in LEGEND_START)), None)
+        if start is None:
+            continue
+        end = next((b[1] - 4 for b in blocks if b[1] > start + 20 and any(m in b[4].lower() for m in LEGEND_END)),
+                   start + 340)
+        band = fitz.Rect(30, max(0, start - 6), page.rect.width - 30, min(page.rect.height, end)) & page.rect
+        if band.height >= 40:
+            return Image.open(BytesIO(page.get_pixmap(matrix=mtx, clip=band).tobytes("png"))).convert("RGB")
+    return None
+
+
+def _img_block(img: Image.Image) -> dict:
     buf = BytesIO()
     img.save(buf, format="PNG")
-    data = base64.standard_b64encode(buf.getvalue()).decode()
+    return {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                        "data": base64.standard_b64encode(buf.getvalue()).decode()}}
+
+
+def transcribe(img: Image.Image, legend: Image.Image | None = None) -> tuple[bool, str]:
+    """Return (is_content, transcription). is_content is the model's structured
+    verdict on whether the region is a real table/diagram vs plain text. When a
+    legend image is supplied it is passed first, as the symbol key."""
+    content = []
+    if legend is not None:
+        content.append(_img_block(legend))
+        content.append({"type": "text", "text": "The FIRST image is the document's legend defining "
+                        "each symbol (e.g. tick, cross, triangle). Use it to interpret the symbols "
+                        "in the table image that follows."})
+    content.append(_img_block(img))
+    content.append({"type": "text", "text": TRANSCRIBE_PROMPT})
     resp = anthro.messages.create(
         model=MODEL, max_tokens=2048,
-        messages=[{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}},
-            {"type": "text", "text": TRANSCRIBE_PROMPT},
-        ]}],
+        messages=[{"role": "user", "content": content}],
         output_config={"format": {"type": "json_schema", "schema": TRANSCRIBE_SCHEMA}},
     )
     text = "".join(b.text for b in resp.content if b.type == "text")
@@ -253,6 +287,8 @@ create index if not exists clause_figures_embedding_idx on clause_figures using 
 def run(pdf_path: str, standard_id: str) -> None:
     doc = fitz.open(pdf_path)
     s = slug(standard_id)
+    legend = find_legend(doc)
+    print(f"legend {'found' if legend is not None else 'not found'}", flush=True)
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         register_vector(conn)
@@ -321,7 +357,7 @@ def run(pdf_path: str, standard_id: str) -> None:
 
                 # Vision is the final arbiter: it returns a structured verdict on
                 # whether the region is a real table/diagram. Skip plain text.
-                is_content, text = transcribe(img)
+                is_content, text = transcribe(img, legend)
                 if not is_content:
                     print(f"  page {start_page}: not a table/figure, skipping", flush=True)
                     continue

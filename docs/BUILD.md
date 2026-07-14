@@ -50,8 +50,11 @@ graph layer** (below) - deliberately *not* the RDF/Fuseki stack yet.
 tables so the column header travels with the body, renders each to PNG -> R2, transcribes
 it with Claude vision into structured text, embeds the transcription, and attaches it to
 the clause it sits under. This recovers compliance data that text-only extraction loses
-(e.g. the ✓/△ "required vs recommended per stadium category" matrices). AFC 2026 has 26
-extracted. Shown on clause pages (image + transcription) and used by Ask (figure
+(e.g. the ✓/△ "required vs recommended per stadium category" matrices). A **structured
+`is_content` verdict** from the vision model gates out text-with-borders (editions vary:
+some draw heavy vector decoration around plain text, which the geometry alone can't
+distinguish - only the model can). Corpus: **27 genuine figures** (2026 23, 2021 2, 24051 2),
+zero false positives. Shown on clause pages (image + transcription) and used by Ask (figure
 transcriptions are a retrieval + answer source; matched tables render in the response).
 Runs automatically at the end of `ingest/load.py` when `--pdf` is given (`--no-figures` to skip).
 
@@ -179,10 +182,12 @@ Prereqs: `git`, `uv` (Python), `node`.
    No open GitHub PR (the local token lacks pull-request-write scope).
 7. **`stadia_core` (RDF/Fuseki/SPARQL) - "later".** The semantic-web lineage; revisit if/when a
    true triplestore + SPARQL + OWL reasoning is wanted alongside (or instead of) the Postgres graph.
-8. **Figures/tables refinements.** (a) `kind` detection under-fires - all 26 AFC 2026 regions
-   were labelled `figure` though they are tables (line-grid heuristic in `figures._is_table`
-   too strict); cosmetic, transcription is correct. (b) The ✓/△ **legend** is inferred by
-   convention, not read from the doc - capture the legend once (usually an early page) and pass
-   it as context to the vision prompt. (c) Only AFC 2026 has figures extracted so far - run
-   `ingest.figures` on 2021 and 24051 too.
+8. **Figures/tables refinements.** (a) The false-positive gate is the vision model's structured
+   `is_content` verdict (reliable); a cheap geometric pre-gate was tried and removed - it
+   rejected genuine tables that lack a strong vector grid, so we transcribe candidates and let
+   the model decide (a few wasted vision calls on text regions, but 100% precision). (b) The ✓/△
+   **legend** is inferred by convention, not read from the doc - capture the legend once (usually
+   an early page) and pass it as context to the vision prompt. (c) `kind` (table vs figure) is a
+   rough `_grid_lines` heuristic; some tables get labelled `figure` (cosmetic - transcription is
+   correct either way).
 9. **OCR activation** if scanned PDFs must be ingested (install Tesseract or wire Azure creds).

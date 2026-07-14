@@ -51,17 +51,28 @@ REPEAT_MIN = 5
 RENDER_DPI = 150
 PAD = 6
 
-TRANSCRIBE_PROMPT = """This image is a table or figure from a stadium standard/regulation.
-Transcribe it faithfully and completely - do not summarise, infer, or omit any row or column.
+TRANSCRIBE_PROMPT = """This image is a region detected in a stadium standard/regulation PDF.
 
-1. Reproduce it as a GitHub-flavoured markdown table (or a clear description if it is a diagram
-   rather than a table), preserving every row label, column header, and cell. Represent a tick
-   as REQUIRED and a triangle as RECOMMENDED where those symbols appear (this is the usual legend:
-   tick = required/mandatory, triangle = recommended/optional).
-2. Then, one line per row, state in plain English which columns/categories are required and which
-   are recommended (e.g. "Player-escort room: required for CAT A, B, C; recommended for CAT D, E").
+First decide: is it a real DATA TABLE / MATRIX / DIAGRAM / CHART (structured content), or just a
+block of body/regulatory text (paragraphs, clauses) that happens to have borders or rules?
+Set is_content=true only for genuine tables/diagrams; set is_content=false for plain text.
 
-Use ONLY what is visible in the image."""
+If is_content is true, transcribe it faithfully and completely into `transcription` - do not
+summarise, infer, or omit any row or column:
+1. A GitHub-flavoured markdown table (or a clear description for a diagram), preserving every row
+   label, column header, and cell. Represent a tick as REQUIRED and a triangle as RECOMMENDED where
+   those symbols appear (usual legend: tick = required, triangle = recommended).
+2. Then one line per row in plain English (e.g. "Player-escort room: required for CAT A, B, C;
+   recommended for CAT D, E").
+
+If is_content is false, leave `transcription` empty. Use ONLY what is visible in the image."""
+
+TRANSCRIBE_SCHEMA = {
+    "type": "object",
+    "properties": {"is_content": {"type": "boolean"}, "transcription": {"type": "string"}},
+    "required": ["is_content", "transcription"],
+    "additionalProperties": False,
+}
 
 vo = voyageai.Client()
 anthro = anthropic.Anthropic()
@@ -92,6 +103,30 @@ def _components(mask: np.ndarray):
                         stack.append((nr, nc))
             out.append((r0, c0, r1, c1))
     return out
+
+
+def _grid_lines(page: fitz.Page, rect: fitz.Rect) -> tuple[int, int]:
+    """Distinct horizontal and vertical rule positions inside a region. A real
+    table has an internal grid (many of both); a bordered text box has ~2 each."""
+    hs, vs = set(), set()
+    for d in page.get_drawings():
+        for it in d["items"]:
+            op = it[0]
+            if op == "l":
+                p1, p2 = it[1], it[2]
+                mid = fitz.Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+                if not rect.contains(mid):
+                    continue
+                if abs(p1.y - p2.y) < 2 and abs(p1.x - p2.x) >= 25:
+                    hs.add(round(p1.y / 3))
+                elif abs(p1.x - p2.x) < 2 and abs(p1.y - p2.y) >= 25:
+                    vs.add(round(p1.x / 3))
+            elif op == "re":
+                r = it[1]
+                if r.width >= 25 and r.height >= 25 and rect.intersects(r):
+                    hs.update((round(r.y0 / 3), round(r.y1 / 3)))
+                    vs.update((round(r.x0 / 3), round(r.x1 / 3)))
+    return len(hs), len(vs)
 
 
 def detect(page: fitz.Page) -> list[fitz.Rect]:
@@ -149,19 +184,6 @@ def _stack(images: list[Image.Image]) -> Image.Image:
     return canvas
 
 
-def _is_table(page: fitz.Page, rect: fitz.Rect) -> bool:
-    h = v = 0
-    for d in page.get_drawings():
-        r = d["rect"]
-        if not rect.intersects(r):
-            continue
-        if r.height <= 2 and r.width >= 40:
-            h += 1
-        elif r.width <= 2 and r.height >= 40:
-            v += 1
-    return h >= 2 and v >= 2
-
-
 # ----------------------------- association -----------------------------
 def clause_label_ys(page: fitz.Page, clause_paths: list[str]) -> dict[str, float]:
     """Left-margin y-position of each clause number on the page (its section label)."""
@@ -184,7 +206,9 @@ def owning_clause(label_ys: dict[str, float], path_to_id: dict[str, int], top_y:
 
 
 # ----------------------------- transcription + embed -----------------------------
-def transcribe(img: Image.Image) -> str:
+def transcribe(img: Image.Image) -> tuple[bool, str]:
+    """Return (is_content, transcription). is_content is the model's structured
+    verdict on whether the region is a real table/diagram vs plain text."""
     buf = BytesIO()
     img.save(buf, format="PNG")
     data = base64.standard_b64encode(buf.getvalue()).decode()
@@ -194,8 +218,11 @@ def transcribe(img: Image.Image) -> str:
             {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}},
             {"type": "text", "text": TRANSCRIBE_PROMPT},
         ]}],
+        output_config={"format": {"type": "json_schema", "schema": TRANSCRIBE_SCHEMA}},
     )
-    return "".join(b.text for b in resp.content if b.type == "text")
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    d = json.loads(text)
+    return bool(d.get("is_content")), d.get("transcription", "")
 
 
 def embed(text: str) -> np.ndarray:
@@ -283,18 +310,27 @@ def run(pdf_path: str, standard_id: str) -> None:
                 paths = list(by_page.get(start_page, {}).keys())
                 label_ys = clause_label_ys(doc[start_page], paths) if paths else {}
                 clause_id = owning_clause(label_ys, by_page.get(start_page, {}), top_y)
+                if clause_id is None and by_page.get(start_page):
+                    clause_id = next(iter(by_page[start_page].values()))  # any clause on the page
                 if clause_id is None:
                     print(f"  page {start_page}: figure with no clause to attach to, skipping", flush=True)
                     continue
 
                 img = _stack([_render(doc[p], r) for p, r in regions])
                 first_page, first_rect = regions[0]
-                kind = "table" if _is_table(doc[first_page], first_rect) else "figure"
+
+                # Vision is the final arbiter: it returns a structured verdict on
+                # whether the region is a real table/diagram. Skip plain text.
+                is_content, text = transcribe(img)
+                if not is_content:
+                    print(f"  page {start_page}: not a table/figure, skipping", flush=True)
+                    continue
+
+                h, v = _grid_lines(doc[first_page], first_rect)
+                kind = "table" if h >= 3 and v >= 3 else "figure"
                 key = f"figures/{s}/p{start_page}_{stored}.png"
                 buf = BytesIO(); img.save(buf, format="PNG")
                 url = upload_bytes(buf.getvalue(), key, "image/png")
-
-                text = transcribe(img)
                 vec = embed(text)
                 bbox = {"x0": first_rect.x0, "y0": first_rect.y0, "x1": first_rect.x1, "y1": first_rect.y1}
                 cur.execute(

@@ -471,6 +471,49 @@ export function graphExpand(seedIds: number[], limit = 8): Promise<SearchHit[]> 
   );
 }
 
+export type ClauseFigure = {
+  id: number;
+  clause_id: number;
+  kind: string;
+  image_url: string | null;
+  transcription: string;
+  page: number;
+  pdf_file_page: number;
+};
+
+// Tables/figures attached to a clause (rendered image + vision transcription).
+export function getClauseFigures(clauseId: number): Promise<ClauseFigure[]> {
+  return query<ClauseFigure>(
+    `select id, clause_id, kind, image_url, transcription, page, pdf_file_page
+     from clause_figures where clause_id = $1 order by id`,
+    [clauseId],
+  );
+}
+
+export type FigureHit = ClauseFigure & {
+  standard_id: string;
+  standard_title: string;
+  clause_path: string | null;
+  sim: number;
+};
+
+// Semantic search over figure/table transcriptions (for Ask: makes diagram/
+// matrix content directly answerable). Hidden standards excluded.
+export function figureSearch(embedding: number[], limit = 4): Promise<FigureHit[]> {
+  const vec = `[${embedding.join(",")}]`;
+  return query<FigureHit>(
+    `select f.id, f.clause_id, f.kind, f.image_url, f.transcription, f.page, f.pdf_file_page,
+            f.standard_id, s.title as standard_title, c.clause_path,
+            (1 - (f.embedding <=> $1::vector))::float8 as sim
+     from clause_figures f
+     join standards s on s.id = f.standard_id
+     left join clauses c on c.id = f.clause_id
+     where f.embedding is not null and ${PUBLISHED}
+     order by f.embedding <=> $1::vector limit $2`,
+    [vec, limit],
+  );
+}
+
 export type ClauseRef = {
   raw: string | null;
   reference_type: string | null;

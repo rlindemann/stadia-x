@@ -41,8 +41,19 @@ graph layer** (below) - deliberately *not* the RDF/Fuseki stack yet.
   (no Tesseract installed / no Azure creds).
 
 **Store** - Neon Postgres (pgvector + tsvector): `standards`, `clauses`, `clause_questions`
-(hypothetical-questions index), `terms`, `refs`, and **`clause_edges`** (the graph).
-Embeddings: Voyage `voyage-3.5`, 1024-dim. PDFs/thumbnails on Cloudflare R2 (bucket `stadia-x`).
+(hypothetical-questions index), `terms`, `refs`, **`clause_edges`** (the graph), and
+**`clause_figures`** (extracted tables/figures + transcriptions). Embeddings: Voyage
+`voyage-3.5`, 1024-dim. PDFs/thumbnails/figure PNGs on Cloudflare R2 (bucket `stadia-x`).
+
+**Tables & figures (multimodal)** - `ingest/figures.py` detects table/diagram regions
+(dense vector-drawing areas; the diagrams are vector, not raster), stitches page-split
+tables so the column header travels with the body, renders each to PNG -> R2, transcribes
+it with Claude vision into structured text, embeds the transcription, and attaches it to
+the clause it sits under. This recovers compliance data that text-only extraction loses
+(e.g. the ✓/△ "required vs recommended per stadium category" matrices). AFC 2026 has 26
+extracted. Shown on clause pages (image + transcription) and used by Ask (figure
+transcriptions are a retrieval + answer source; matched tables render in the response).
+Runs automatically at the end of `ingest/load.py` when `--pdf` is given (`--no-figures` to skip).
 
 **Corpus loaded (3 AFC editions, 701 clauses):**
 - AFC Stadium Regulations 2021 (213), 2026 (330, supersedes 2021), **24051 (158, published)**.
@@ -128,6 +139,7 @@ Prereqs: `git`, `uv` (Python), `node`.
 - Extract: `uv run python -m ingest.extract "<pdf>" <ID> --title "<Title>" [--chunk-pages N] [--ocr]`
 - Load (+auto graph rebuild + R2): `uv run python -m ingest.load data/out/<id>.jsonl <ID> --title "<Title>" --publisher "<Pub>" --pdf "<pdf>" [--supersedes <OLDER_ID>]`
 - Rebuild graph only: `uv run python -m ingest.build_graph`
+- Extract tables/figures only: `uv run python -m ingest.figures "<pdf>" <ID>` (needs clauses loaded first)
 - Build app: `cd studio && npx next build`
 - Windows: prefix non-ASCII Python prints with `PYTHONUNBUFFERED=1` (and run `python -u`).
 - Windows gotcha: **kill stray `node.exe` before `git checkout`/`merge`** - a running `next start`
@@ -135,9 +147,10 @@ Prereqs: `git`, `uv` (Python), `node`.
 
 ## Repo map
 - `shared/models.py` - Clause contract (Pydantic).
-- `ingest/` - `extract.py` (parallel+adaptive), `load.py` (+auto graph build), `build_graph.py`,
-  `ocr.py`, `init_db.py`, `storage.py` (R2).
-- `db/schema.sql` - Postgres schema (incl. `clause_edges`).
+- `ingest/` - `extract.py` (parallel+adaptive), `load.py` (+auto graph build + figures),
+  `build_graph.py`, `figures.py` (tables/figures -> R2 + vision transcribe + embed), `ocr.py`,
+  `init_db.py`, `storage.py` (R2). Prototypes: `figures_prototype.py`, `vision_transcribe_prototype.py`.
+- `db/schema.sql` - Postgres schema (incl. `clause_edges`, `clause_figures`).
 - `studio/` - Next.js app. Key: `src/lib/db.ts` (all queries + Voyage + graph),
   `src/app/api/*` (ask, search, facets, editions, cross-standard, gap, export, admin/*, documents/*),
   `src/app/{ask,clause,analyze,compare,cross,gaps,collections,admin,standards,terms,review}/`,
@@ -166,4 +179,10 @@ Prereqs: `git`, `uv` (Python), `node`.
    No open GitHub PR (the local token lacks pull-request-write scope).
 7. **`stadia_core` (RDF/Fuseki/SPARQL) - "later".** The semantic-web lineage; revisit if/when a
    true triplestore + SPARQL + OWL reasoning is wanted alongside (or instead of) the Postgres graph.
-8. **OCR activation** if scanned PDFs must be ingested (install Tesseract or wire Azure creds).
+8. **Figures/tables refinements.** (a) `kind` detection under-fires - all 26 AFC 2026 regions
+   were labelled `figure` though they are tables (line-grid heuristic in `figures._is_table`
+   too strict); cosmetic, transcription is correct. (b) The ✓/△ **legend** is inferred by
+   convention, not read from the doc - capture the legend once (usually an early page) and pass
+   it as context to the vision prompt. (c) Only AFC 2026 has figures extracted so far - run
+   `ingest.figures` on 2021 and 24051 too.
+9. **OCR activation** if scanned PDFs must be ingested (install Tesseract or wire Azure creds).

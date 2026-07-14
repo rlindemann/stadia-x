@@ -26,6 +26,7 @@ from pgvector.psycopg import register_vector
 
 from ingest.build_graph import main as build_graph
 from ingest.extract import slug
+from ingest.figures import run as extract_figures
 from ingest.storage import upload_bytes, upload_pdf
 
 load_dotenv()
@@ -54,6 +55,7 @@ def main() -> None:
     ap.add_argument("--publisher", default=None)
     ap.add_argument("--pdf", type=Path, default=None, help="source PDF to upload to R2")
     ap.add_argument("--supersedes", default=None, help="standard_id this edition replaces")
+    ap.add_argument("--no-figures", action="store_true", help="skip table/figure extraction")
     args = ap.parse_args()
 
     rows = [json.loads(line) for line in args.jsonl.open(encoding="utf-8")]
@@ -125,6 +127,12 @@ def main() -> None:
                     )
         conn.commit()
     print(f"done: {len(rows)} clauses, {len(q_pairs)} questions loaded.")
+
+    # Extract tables/figures (render -> R2 -> vision transcribe -> embed) when a
+    # source PDF is available; skip with --no-figures.
+    if args.pdf and not args.no_figures:
+        print("extracting tables/figures...")
+        extract_figures(str(args.pdf), args.standard_id)
 
     # Refresh the GraphRAG edges so multi-hop traversal reflects the new clauses.
     print("rebuilding knowledge-graph edges...")

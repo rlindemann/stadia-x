@@ -76,6 +76,23 @@ create table if not exists clause_edges (
   primary key (src_clause, dst_clause, edge_type)
 );
 
+-- Tables/figures extracted from source PDFs (detected regions rendered to PNG,
+-- vision-transcribed, embedded) and attached to the clause they sit under.
+-- Populated by ingest/figures.py.
+create table if not exists clause_figures (
+  id            bigserial primary key,
+  clause_id     bigint references clauses(id) on delete cascade,
+  standard_id   text not null references standards(id) on delete cascade,
+  page          int,
+  pdf_file_page int,
+  bbox          jsonb,
+  kind          text,                       -- table|figure
+  image_url     text,                       -- R2 URL of the rendered region
+  transcription text,                       -- Claude-vision structured transcription
+  embedding     vector(1024),               -- embedding of the transcription
+  meta          jsonb not null default '{}'
+);
+
 -- Indexes: HNSW cosine for semantic, GIN for full-text, plain for facets.
 create index if not exists clauses_embedding_idx on clauses using hnsw (embedding vector_cosine_ops);
 create index if not exists clause_questions_embedding_idx on clause_questions using hnsw (embedding vector_cosine_ops);

@@ -16,11 +16,22 @@ type Clause = {
   source_url: string | null;
 };
 
+type Figure = {
+  id: number;
+  clause_id: number;
+  kind: string;
+  image_url: string | null;
+  page: number;
+  clause_path: string | null;
+  standard_title: string;
+};
+
 type AskResult = {
   sufficient: boolean;
   answer: string;
   clauses: Clause[];
   expanded?: { id: number; edge_type: string }[];
+  figures?: Figure[];
 };
 
 const EDGE_LABEL: Record<string, string> = {
@@ -180,6 +191,23 @@ export default function AskPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {result.figures && result.figures.length > 0 && (
+            <div className="ask-figs">
+              <div className="ask-sources-lbl">Tables &amp; figures used</div>
+              <div className="ask-figs-grid">
+                {result.figures.map((f) => (
+                  <Link key={f.id} href={`/clause/${f.clause_id}`} className="ask-fig">
+                    {f.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={f.image_url} alt={`${f.kind} p.${f.page}`} loading="lazy" />
+                    )}
+                    <span className="ask-fig-cap">{f.standard_title} · {f.clause_path ?? ""} · p.{f.page}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
         </div>

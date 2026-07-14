@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getClauseDetail, getClauseGraph, type GraphNeighbour } from "@/lib/db";
+import { getClauseDetail, getClauseFigures, getClauseGraph, type GraphNeighbour } from "@/lib/db";
 import { SaveButton } from "@/components/save-button";
 import { CopyLink } from "@/components/copy-link";
 
@@ -26,6 +26,7 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
   if (!clause) notFound();
 
   const graph = await getClauseGraph(clause.id, 1);
+  const figures = await getClauseFigures(clause.id);
   const byType = new Map<string, GraphNeighbour[]>();
   for (const g of graph) {
     const arr = byType.get(g.edge_type) ?? [];
@@ -93,6 +94,26 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
           }}
         />
       </div>
+
+      {figures.length > 0 && (
+        <div className="cd-figs">
+          <div className="cd-figs-lbl">
+            Tables &amp; figures in this clause — extracted and transcribed
+          </div>
+          {figures.map((f) => (
+            <figure className="cd-fig" key={f.id}>
+              {f.image_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={f.image_url} alt={`${f.kind} on page ${f.page}`} loading="lazy" />
+              )}
+              <details>
+                <summary>Transcription ({f.kind}, p.{f.page})</summary>
+                <pre className="cd-fig-text">{f.transcription}</pre>
+              </details>
+            </figure>
+          ))}
+        </div>
+      )}
 
       <dl className="cd-fields">
         <dt>Normativity</dt>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
+import { embedQuery, figureSearch, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 const EDGE_LABEL: Record<string, string> = {
@@ -76,6 +76,16 @@ export async function POST(req: NextRequest) {
       ? (await graphExpand(hits.map((h) => h.id), 8)).filter((e) => !seen.has(e.id))
       : [];
 
+    // Figures/tables whose transcription matches the question — makes diagram/
+    // matrix content answerable. Attach to their owning clause id.
+    const figures = (await figureSearch(embedding, 3)).filter((f) => f.sim >= 0.35);
+    const figureBlock = figures.length
+      ? `\n\nTranscribed tables/figures relevant to the question; treat their content as clause data and cite the clause id shown:\n\n` +
+        figures
+          .map((f) => `[[${f.clause_id}]] (${f.kind}, ${f.standard_title} ${f.clause_path ?? ""}, p.${f.page}):\n${f.transcription}`)
+          .join("\n\n")
+      : "";
+
     const relatedBlock = expanded.length
       ? `\n\nAdditional clauses reached via the knowledge graph (${expanded.length}); use them to complete or qualify the answer, and cite them the same way:\n\n` +
         expanded
@@ -96,7 +106,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}`,
+          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}${figureBlock}`,
         },
       ],
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
@@ -111,6 +121,15 @@ export async function POST(req: NextRequest) {
       answer: parsed.answer,
       clauses: [...hits, ...expanded],
       expanded: expanded.map((e) => ({ id: e.id, edge_type: e.matched_question })),
+      figures: figures.map((f) => ({
+        id: f.id,
+        clause_id: f.clause_id,
+        kind: f.kind,
+        image_url: f.image_url,
+        page: f.page,
+        clause_path: f.clause_path,
+        standard_title: f.standard_title,
+      })),
     });
   } catch (e) {
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });

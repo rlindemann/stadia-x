@@ -537,11 +537,18 @@ h1.title .g { color: var(--accent); }
 .cd-graph-list { margin-top: 16px; }
 .cd-graph-list > summary { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); cursor: pointer; margin-bottom: 12px; }
 
-/* Interactive clause graph (node-link view) */
-.cg-stage { position: relative; height: 480px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+/* Interactive clause graph (force-directed, expands in place) */
+.cg-stage { position: relative; height: 500px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
   background: radial-gradient(120% 120% at 50% 42%, var(--panel), var(--bg) 82%); }
 .cg-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 .cg-svg:active { cursor: grabbing; }
+
+.cg-toolbar { position: absolute; top: 12px; left: 14px; z-index: 2; display: flex; align-items: center; gap: 12px; }
+.cg-count { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cg-btn { font-family: var(--mono); font-size: 11px; color: var(--ink-2); background: var(--raised);
+  border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.cg-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.cg-btn:disabled { opacity: .5; cursor: default; }
 
 .cg-edge { fill: none; stroke-linecap: round; transition: opacity .18s; }
 .cg-e-reference { stroke: var(--accent-2); }
@@ -552,19 +559,18 @@ h1.title .g { color: var(--accent); }
 .cg-edge.hidden { display: none; }
 
 .cg-node { cursor: pointer; outline: none; }
-.cg-node circle { fill: var(--raised); stroke-width: 2; transition: opacity .18s; }
-.cg-via-reference circle { stroke: var(--accent-2); }
-.cg-via-supersedes circle { stroke: var(--shall); }
-.cg-via-defines_term circle { stroke: var(--should); }
-.cg-via-similar circle { stroke: var(--may); }
-.cg-d0 circle { fill: var(--accent); stroke: var(--accent); stroke-width: 0; }
+.cg-node circle { stroke-width: 2; transition: opacity .18s, fill .18s; }
+.cg-shut circle { fill: var(--raised); stroke: var(--line-2); }
+.cg-open circle { fill: var(--accent-wash); stroke: var(--accent-2); }
+.cg-seed circle { fill: var(--accent); stroke: var(--accent); stroke-width: 0; }
+.cg-node.sel circle { stroke: var(--accent); stroke-width: 3; }
 .cg-node:focus-visible circle { stroke: var(--ink); stroke-width: 3; }
-.cg-lbl-t { font-family: var(--mono); font-size: 12px; fill: var(--ink); paint-order: stroke;
-  stroke: var(--panel); stroke-width: 3px; pointer-events: none; transition: opacity .18s; }
-.cg-d0 .cg-lbl-t { font-size: 13px; font-weight: 600; fill: #fff; stroke: none; }
-.cg-d1 .cg-lbl-t { font-weight: 600; }
-.cg-d2 .cg-lbl-t { opacity: 0; font-size: 11px; fill: var(--muted); }
-.cg-node.show .cg-lbl-t { opacity: 1; }
+.cg-node.busy circle { stroke-dasharray: 3 3; }
+.cg-plus { font-family: var(--mono); font-size: 11px; font-weight: 700; fill: var(--muted); pointer-events: none; }
+.cg-lbl-t { font-family: var(--mono); font-size: 11px; fill: var(--ink); paint-order: stroke;
+  stroke: var(--panel); stroke-width: 3px; pointer-events: none; opacity: 0; transition: opacity .18s; }
+.cg-seed .cg-lbl-t { font-size: 13px; font-weight: 600; fill: #fff; stroke: none; opacity: 1; }
+.cg-node.sel .cg-lbl-t, .cg-node.show .cg-lbl-t { opacity: 1; }
 .cg-node.faded { opacity: .16; }
 .cg-node.faded .cg-lbl-t { opacity: 0; }
 
@@ -598,8 +604,13 @@ h1.title .g { color: var(--accent); }
 .cg-p-via b { color: var(--ink); }
 .cg-vdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .cg-vpath { font-family: var(--mono); color: var(--ink); }
-.cg-p-text { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin: 0; max-height: 150px; overflow-y: auto; }
-.cg-p-open { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.cg-p-text { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin: 0; max-height: 130px; overflow-y: auto; }
+.cg-p-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; pointer-events: auto; }
+.cg-open-link { font-family: var(--mono); font-size: 11px; color: var(--accent-2); }
+.cg-open-link:hover { text-decoration: underline; }
+.cg-cap { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 2;
+  font-family: var(--mono); font-size: 11px; color: var(--should); background: var(--raised);
+  border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 10px; }
 .cg-hint { position: absolute; right: 14px; bottom: 12px; font-size: 11px; color: var(--faint); }
 
 @media (max-width: 640px) {

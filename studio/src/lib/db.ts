@@ -511,6 +511,36 @@ export async function getClauseGraphData(
   return { seed: clauseId, nodes };
 }
 
+export type GraphNeighbourLite = {
+  id: number;
+  clause_path: string;
+  standard_id: string;
+  standard_title: string;
+  obligation_type: string;
+  text: string;
+  edge_type: string;
+  weight: number;
+};
+
+// Direct (1-hop) typed neighbours of a clause, for on-demand graph expansion.
+// One row per neighbour carrying its primary edge (rarer types win), capped so a
+// single expansion can't flood the canvas.
+export function getClauseNeighbours(clauseId: number): Promise<GraphNeighbourLite[]> {
+  const PRIO = `array['reference','supersedes','defines_term','similar']`;
+  return query<GraphNeighbourLite>(
+    `select distinct on (c.id) c.id, c.clause_path, c.standard_id, s.title as standard_title,
+            c.obligation_type, left(c.verbatim_text, 150) as text,
+            e.edge_type, e.weight::float8 as weight
+     from clause_edges e
+     join clauses c on c.id = e.dst_clause
+     join standards s on s.id = c.standard_id
+     where e.src_clause = $1 and ${PUBLISHED}
+     order by c.id, array_position(${PRIO}, e.edge_type), e.weight desc
+     limit 40`,
+    [clauseId],
+  );
+}
+
 // GraphRAG expansion: given the seed clauses a query retrieved, pull their
 // direct graph neighbours (precise edges first) to widen the answer context
 // with clauses the seeds depend on / define / supersede — the multi-hop that

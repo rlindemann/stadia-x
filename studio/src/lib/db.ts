@@ -446,6 +446,71 @@ export function getClauseGraph(clauseId: number, depth = 1): Promise<GraphNeighb
   );
 }
 
+export type GraphViewNode = {
+  id: number;
+  parent: number | null; // clause this node was first reached from (null for the seed)
+  via: string | null; // edge type that reached it (null for the seed)
+  depth: number; // 0 seed, 1 one hop, 2 two hops
+  clause_path: string;
+  standard_id: string;
+  standard_title: string;
+  standard_status: string | null;
+  obligation_type: string;
+  text: string; // verbatim snippet
+};
+
+// Nodes + edges for the clause-page graph view: the seed clause plus its typed
+// neighbourhood to `depth` hops (recursive CTE). Each non-seed row carries the
+// single edge that first reached it (rarer edge types win ties), so the client
+// draws the actual traversal tree. The 2-hop fan-out is capped per parent, and
+// the 1-hop set capped overall, to keep the picture legible.
+export async function getClauseGraphData(
+  clauseId: number,
+  depth = 2,
+): Promise<{ seed: number; nodes: GraphViewNode[] }> {
+  const PRIO = `array['reference','supersedes','defines_term','similar']`;
+  const nodes = await query<GraphViewNode>(
+    `with recursive walk(cid, depth, parent, via, path) as (
+       select e.dst_clause, 1, e.src_clause, e.edge_type, array[e.src_clause, e.dst_clause]
+       from clause_edges e where e.src_clause = $1
+       union all
+       select e.dst_clause, w.depth + 1, w.cid, e.edge_type, w.path || e.dst_clause
+       from walk w join clause_edges e on e.src_clause = w.cid
+       where w.depth < $2 and e.dst_clause <> all(w.path)
+     ),
+     firstreach as (
+       select distinct on (cid) cid, depth, parent, via
+       from walk order by cid, depth, array_position(${PRIO}, via)
+     ),
+     d1 as (
+       select cid, depth, parent, via from firstreach where depth = 1
+       order by array_position(${PRIO}, via) limit 16
+     ),
+     d2 as (
+       select f.cid, f.depth, f.parent, f.via,
+              row_number() over (partition by f.parent
+                                 order by array_position(${PRIO}, f.via)) as rn
+       from firstreach f join d1 on d1.cid = f.parent
+       where f.depth = 2
+     ),
+     kept as (
+       select $1::bigint as cid, 0 as depth, null::bigint as parent, null::text as via
+       union all select cid, depth, parent, via from d1
+       union all select cid, depth, parent, via from d2 where rn <= 5
+     )
+     select c.id, k.parent, k.via, k.depth,
+            c.clause_path, c.standard_id, s.title as standard_title, s.status as standard_status,
+            c.obligation_type, left(c.verbatim_text, 150) as text
+     from kept k
+     join clauses c on c.id = k.cid
+     join standards s on s.id = c.standard_id
+     where ${PUBLISHED}
+     order by k.depth`,
+    [clauseId, depth],
+  );
+  return { seed: clauseId, nodes };
+}
+
 // GraphRAG expansion: given the seed clauses a query retrieved, pull their
 // direct graph neighbours (precise edges first) to widen the answer context
 // with clauses the seeds depend on / define / supersede — the multi-hop that

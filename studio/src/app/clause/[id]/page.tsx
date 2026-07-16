@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getClauseDetail, getClauseFigures, getClauseGraph, type GraphNeighbour } from "@/lib/db";
+import { getClauseDetail, getClauseFigures, getClauseGraphData, type GraphViewNode } from "@/lib/db";
 import { SaveButton } from "@/components/save-button";
 import { CopyLink } from "@/components/copy-link";
+import { ClauseGraph } from "@/components/clause-graph";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +26,15 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
   const clause = await getClauseDetail(Number(id));
   if (!clause) notFound();
 
-  const graph = await getClauseGraph(clause.id, 1);
+  const { nodes: graphNodes } = await getClauseGraphData(clause.id, 2);
   const figures = await getClauseFigures(clause.id);
-  const byType = new Map<string, GraphNeighbour[]>();
-  for (const g of graph) {
-    const arr = byType.get(g.edge_type) ?? [];
+  const oneHop = graphNodes.filter((n) => n.depth === 1);
+  const byType = new Map<string, GraphViewNode[]>();
+  for (const g of oneHop) {
+    const key = g.via ?? "similar";
+    const arr = byType.get(key) ?? [];
     arr.push(g);
-    byType.set(g.edge_type, arr);
+    byType.set(key, arr);
   }
 
   const termLink = new Map(clause.term_defs.map((t) => [t.term, t.defined_in_clause]));
@@ -177,23 +180,29 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
         <dd className="cd-uri">{clause.uri ?? "—"}</dd>
       </dl>
 
-      {graph.length > 0 && (
+      {graphNodes.length > 1 && (
         <div className="cd-graph">
-          <div className="cd-graph-lbl">Related via graph — {graph.length} clause{graph.length === 1 ? "" : "s"} one hop away</div>
-          {EDGE_GROUPS.filter((g) => byType.has(g.type)).map((g) => (
-            <div className="cd-graph-grp" key={g.type}>
-              <div className={`cd-graph-type t-${g.type}`}>{g.label}</div>
-              <div className="cd-graph-items">
-                {byType.get(g.type)!.map((n) => (
-                  <Link key={`${n.id}-${g.type}`} href={`/clause/${n.id}`} className="cd-graph-item">
-                    <span className="path">{n.clause_path}</span>
-                    {n.standard_id !== clause.standard_id && <span className="cd-graph-std">{n.standard_title}</span>}
-                    <span className="cd-graph-text">{n.verbatim_text.slice(0, 90)}</span>
-                  </Link>
-                ))}
+          <div className="cd-graph-lbl">
+            Related via graph — {oneHop.length} one hop away, {graphNodes.length - 1} within two
+          </div>
+          <ClauseGraph seed={clause.id} nodes={graphNodes} />
+          <details className="cd-graph-list">
+            <summary>List view</summary>
+            {EDGE_GROUPS.filter((g) => byType.has(g.type)).map((g) => (
+              <div className="cd-graph-grp" key={g.type}>
+                <div className={`cd-graph-type t-${g.type}`}>{g.label}</div>
+                <div className="cd-graph-items">
+                  {byType.get(g.type)!.map((n) => (
+                    <Link key={`${n.id}-${g.type}`} href={`/clause/${n.id}`} className="cd-graph-item">
+                      <span className="path">{n.clause_path}</span>
+                      {n.standard_id !== clause.standard_id && <span className="cd-graph-std">{n.standard_title}</span>}
+                      <span className="cd-graph-text">{n.text.slice(0, 90)}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </details>
         </div>
       )}
 

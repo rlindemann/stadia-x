@@ -1,377 +1,247 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import cytoscape from "cytoscape";
 import type { GraphViewNode } from "@/lib/db";
 
 const TYPES = ["reference", "supersedes", "defines_term", "similar"] as const;
 const TYPE_LABEL: Record<string, string> = {
-  reference: "reference",
-  supersedes: "supersedes",
-  defines_term: "defines term",
-  similar: "similar",
+  reference: "reference", supersedes: "supersedes", defines_term: "defines term", similar: "similar",
 };
 const MAX_NODES = 200;
 
-type Meta = {
-  id: number;
-  clause_path: string;
-  standard_id: string;
-  standard_title: string;
-  obligation_type: string;
-  text: string;
-};
-type SimNode = Meta & { expanded: boolean };
-type SimEdge = { key: string; src: number; dst: number; type: string };
-type P = { x: number; y: number; vx: number; vy: number; fx: number | null; fy: number | null };
+type NodeData = { id: string; label: string; path: string; std: string; obl: string; text: string; expanded: number };
 
 const edgeKey = (a: number, b: number, type: string) => {
   const [x, y] = a < b ? [a, b] : [b, a];
-  return `${x}-${y}-${type}`;
+  return `e-${x}-${y}-${type}`;
 };
 
-const nodeTf = (p: { x: number; y: number }) => `translate(${p.x.toFixed(2)} ${p.y.toFixed(2)})`;
-const edgeD = (s: { x: number; y: number }, u: { x: number; y: number }) => {
-  const mx = (s.x + u.x) / 2, my = (s.y + u.y) / 2, dx = u.x - s.x, dy = u.y - s.y;
-  const len = Math.hypot(dx, dy) || 1, bow = Math.min(len * 0.12, 40);
-  const cx = mx - (dy / len) * bow, cy = my + (dx / len) * bow;
-  return `M${s.x.toFixed(2)} ${s.y.toFixed(2)} Q${cx.toFixed(2)} ${cy.toFixed(2)} ${u.x.toFixed(2)} ${u.y.toFixed(2)}`;
-};
-
-// Seed the accumulating graph from the server-fetched 2-hop tree, laying nodes
-// out radially as a tidy starting arrangement (the force sim relaxes it after).
-function buildInitial(seed: number, initial: GraphViewNode[]) {
-  const byId = new Map(initial.map((n) => [n.id, n]));
+// Radial starting positions: seed centre, 1-hop ring, 2-hop fanned from parent.
+function radialPositions(seed: number, initial: GraphViewNode[]) {
   const children = new Map<number, GraphViewNode[]>();
   for (const n of initial) {
     if (n.parent == null) continue;
-    const arr = children.get(n.parent) ?? [];
-    arr.push(n);
-    children.set(n.parent, arr);
+    const a = children.get(n.parent) ?? []; a.push(n); children.set(n.parent, a);
   }
-  const pos = new Map<number, P>();
-  const put = (id: number, x: number, y: number) => pos.set(id, { x, y, vx: 0, vy: 0, fx: null, fy: null });
-  put(seed, 0, 0);
+  const pos = new Map<number, { x: number; y: number }>();
+  pos.set(seed, { x: 0, y: 0 });
   const ring1 = initial.filter((n) => n.depth === 1);
-  const R1 = 150, R2 = 300;
   ring1.forEach((n, i) => {
     const ang = -Math.PI / 2 + (i / Math.max(ring1.length, 1)) * Math.PI * 2;
-    put(n.id, R1 * Math.cos(ang), R1 * Math.sin(ang));
-    (children.get(n.id) ?? []).forEach((kid, j) => {
-      const kn = (children.get(n.id) ?? []).length;
-      const spread = 0.7;
-      const t = ang + (kn > 1 ? (j / (kn - 1) - 0.5) * spread : 0);
-      put(kid.id, R2 * Math.cos(t), R2 * Math.sin(t));
+    pos.set(n.id, { x: 150 * Math.cos(ang), y: 150 * Math.sin(ang) });
+    const kids = children.get(n.id) ?? [];
+    kids.forEach((kid, j) => {
+      const t = ang + (kids.length > 1 ? (j / (kids.length - 1) - 0.5) * 0.7 : 0);
+      pos.set(kid.id, { x: 300 * Math.cos(t), y: 300 * Math.sin(t) });
     });
   });
+  return pos;
+}
 
-  const nodes: SimNode[] = initial.map((n) => ({
-    id: n.id, clause_path: n.clause_path, standard_id: n.standard_id, standard_title: n.standard_title,
-    obligation_type: n.obligation_type, text: n.text, expanded: n.depth <= 1,
+function buildElements(seed: number, initial: GraphViewNode[]): cytoscape.ElementDefinition[] {
+  const pos = radialPositions(seed, initial);
+  const nodes: cytoscape.ElementDefinition[] = initial.map((n) => ({
+    group: "nodes",
+    data: {
+      id: String(n.id), label: n.clause_path.replace(/^DEF-/, "◆ "), path: n.clause_path,
+      std: n.standard_title, obl: n.obligation_type, text: n.text, expanded: n.depth <= 1 ? 1 : 0,
+    } as NodeData,
+    position: pos.get(n.id) ?? { x: 0, y: 0 },
+    classes: n.id === seed ? "seed" : "",
   }));
-  const edges: SimEdge[] = [];
-  const eseen = new Set<string>();
+  const seen = new Set<string>();
+  const edges: cytoscape.ElementDefinition[] = [];
   for (const n of initial) {
-    if (n.parent == null || !byId.has(n.parent)) continue;
+    if (n.parent == null) continue;
     const k = edgeKey(n.parent, n.id, n.via ?? "similar");
-    if (eseen.has(k)) continue;
-    eseen.add(k);
-    edges.push({ key: k, src: n.parent, dst: n.id, type: n.via ?? "similar" });
+    if (seen.has(k)) continue;
+    seen.add(k);
+    edges.push({ group: "edges", data: { id: k, source: String(n.parent), target: String(n.id), type: n.via ?? "similar" } });
   }
-  const expandedIds = new Set(nodes.filter((n) => n.expanded).map((n) => n.id));
-  return { nodes, edges, pos, expandedIds };
+  return [...nodes, ...edges];
+}
+
+function palette() {
+  const cs = getComputedStyle(document.documentElement);
+  const g = (v: string) => cs.getPropertyValue(v).trim();
+  return {
+    accent: g("--accent"), accent2: g("--accent-2"), wash: g("--accent-wash"),
+    shall: g("--shall"), should: g("--should"), may: g("--may"),
+    ink: g("--ink"), raised: g("--raised"), line2: g("--line-2"),
+  };
+}
+
+function buildStyle(p: ReturnType<typeof palette>): cytoscape.StylesheetJson {
+  return [
+    { selector: "node", style: {
+      width: 14, height: 14, "background-color": p.raised, "border-color": p.line2, "border-width": 2,
+      label: "data(label)", "font-family": "monospace", "font-size": 9, color: p.ink,
+      "text-halign": "right", "text-valign": "center", "text-margin-x": 3, "min-zoomed-font-size": 7,
+    } },
+    { selector: "node[expanded = 1]", style: { "background-color": p.wash, "border-color": p.accent2 } },
+    { selector: ".seed", style: { width: 24, height: 24, "background-color": p.accent, "border-width": 0, "font-size": 12, "font-weight": "bold" } },
+    { selector: ".sel", style: { "border-color": p.accent, "border-width": 3 } },
+    { selector: ".dim", style: { opacity: 0.15 } },
+    { selector: "edge", style: { width: 1.6, "curve-style": "bezier", "line-color": p.may, opacity: 0.7 } },
+    { selector: 'edge[type = "reference"]', style: { "line-color": p.accent2 } },
+    { selector: 'edge[type = "supersedes"]', style: { "line-color": p.shall } },
+    { selector: 'edge[type = "defines_term"]', style: { "line-color": p.should } },
+    { selector: 'edge[type = "similar"]', style: { "line-color": p.may, width: 1, opacity: 0.4 } },
+    { selector: "edge.dim", style: { opacity: 0.05 } },
+    { selector: "edge.hide", style: { display: "none" } },
+  ];
 }
 
 export function ClauseGraph({ seed, nodes: initial }: { seed: number; nodes: GraphViewNode[] }) {
-  const first = useMemo(() => buildInitial(seed, initial), [seed, initial]);
+  const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cyRef = useRef<cytoscape.Core | null>(null);
+  const expandRef = useRef<(id: number) => void>(() => {});
+  const busyRef = useRef<Set<number>>(new Set());
+  const expandedRef = useRef<Set<number>>(new Set(initial.filter((n) => n.depth <= 1).map((n) => n.id)));
+  const lastTap = useRef<{ id: number; t: number }>({ id: 0, t: 0 });
+  const hiddenRef = useRef<Set<string>>(new Set());
 
-  const [nodes, setNodes] = useState<SimNode[]>(first.nodes);
-  const [edges, setEdges] = useState<SimEdge[]>(first.edges);
-  const [hover, setHover] = useState<number | null>(null);
-  const [selected, setSelected] = useState<number | null>(seed);
-  const [busy, setBusy] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<NodeData | null>(null);
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [t, setT] = useState({ k: 1, tx: 0, ty: 0 });
   const [capped, setCapped] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({ reference: 0, supersedes: 0, defines_term: 0, similar: 0 });
+  const [stats, setStats] = useState({ nodes: initial.length, edges: 0 });
 
-  const posRef = useRef<Map<number, P>>(first.pos);
-  const expandedRef = useRef<Set<number>>(first.expandedIds);
-  const gRefs = useRef<Map<number, SVGGElement>>(new Map());
-  const eRefs = useRef<Map<string, SVGPathElement>>(new Map());
-  const svgRef = useRef<SVGSVGElement>(null);
-  const graphRef = useRef({ nodes, edges });
-  const tRef = useRef(t);
-  const alphaRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-  const panRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(null);
-  const nodeDragRef = useRef<{ id: number; sx: number; sy: number; moved: boolean } | null>(null);
-
-  graphRef.current = { nodes, edges };
-  useEffect(() => { tRef.current = t; }, [t]);
-
-  const adj = useMemo(() => {
-    const m = new Map<number, Set<number>>();
-    for (const n of nodes) m.set(n.id, new Set());
-    for (const e of edges) { m.get(e.src)?.add(e.dst); m.get(e.dst)?.add(e.src); }
-    return m;
-  }, [nodes, edges]);
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { reference: 0, supersedes: 0, defines_term: 0, similar: 0 };
-    for (const e of edges) c[e.type] = (c[e.type] ?? 0) + 1;
-    return c;
-  }, [edges]);
-
-  // --- force simulation: velocity-Verlet with cooling; positions written to the
-  // DOM imperatively so React re-renders (hover, expand) never fight the layout.
-  const tick = useCallback(() => {
-    const pos = posRef.current;
-    const { nodes: ns, edges: es } = graphRef.current;
-    const ids = ns.map((n) => n.id);
-    let alpha = alphaRef.current;
-    const VDECAY = 0.6, REP = 2600, SPRING = 0.06, LEN = 95, CENTER = 0.004;
-
-    for (let i = 0; i < ids.length; i++) {
-      const a = pos.get(ids[i]); if (!a) continue;
-      for (let j = i + 1; j < ids.length; j++) {
-        const b = pos.get(ids[j]); if (!b) continue;
-        let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
-        if (d2 < 0.01) { dx = (ids[i] % 7) - 3 || 1; dy = (ids[j] % 7) - 3 || 1; d2 = dx * dx + dy * dy; }
-        const d = Math.sqrt(d2), f = (REP * alpha) / d2;
-        a.vx += (dx / d) * f; a.vy += (dy / d) * f;
-        b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
-      }
-    }
-    for (const e of es) {
-      const s = pos.get(e.src), u = pos.get(e.dst); if (!s || !u) continue;
-      const dx = u.x - s.x, dy = u.y - s.y, d = Math.hypot(dx, dy) || 0.01;
-      const f = SPRING * alpha * (d - LEN), ux = dx / d, uy = dy / d;
-      s.vx += ux * f; s.vy += uy * f; u.vx -= ux * f; u.vy -= uy * f;
-    }
-    for (const id of ids) {
-      const p = pos.get(id); if (!p) continue;
-      p.vx += -p.x * CENTER * alpha; p.vy += -p.y * CENTER * alpha;
-      p.vx *= VDECAY; p.vy *= VDECAY;
-      if (p.fx == null) { p.x += p.vx; p.y += p.vy; } else { p.x = p.fx; p.y = p.fy!; p.vx = 0; p.vy = 0; }
-    }
-    const sp = pos.get(seed); if (sp) { sp.x = 0; sp.y = 0; sp.vx = 0; sp.vy = 0; }
-
-    for (const id of ids) {
-      const el = gRefs.current.get(id), p = pos.get(id);
-      if (el && p) el.setAttribute("transform", nodeTf(p));
-    }
-    for (const e of es) {
-      const el = eRefs.current.get(e.key); if (!el) continue;
-      const s = pos.get(e.src), u = pos.get(e.dst); if (!s || !u) continue;
-      el.setAttribute("d", edgeD(s, u));
-    }
-
-    alpha *= 0.985; alphaRef.current = alpha;
-    rafRef.current = alpha > 0.02 ? requestAnimationFrame(tick) : null;
-  }, [seed]);
-
-  const startSim = useCallback((a = 0.9) => {
-    alphaRef.current = Math.max(alphaRef.current, a);
-    if (rafRef.current == null) rafRef.current = requestAnimationFrame(tick);
-  }, [tick]);
-
-  // Reheat whenever the node/edge set changes (mount + every expansion).
-  useEffect(() => { startSim(0.9); }, [nodes, edges, startSim]);
-  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
-
-  // Non-passive wheel zoom around the cursor.
   useEffect(() => {
-    const el = svgRef.current; if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const pt = el.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-      const p = pt.matrixTransform(el.getScreenCTM()!.inverse());
-      const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      setT((prev) => {
-        const k = Math.min(4, Math.max(0.35, prev.k * f));
-        return { k, tx: p.x - (p.x - prev.tx) * (k / prev.k), ty: p.y - (p.y - prev.ty) * (k / prev.k) };
-      });
+    if (!containerRef.current) return;
+    const cy = cytoscape({
+      container: containerRef.current,
+      elements: buildElements(seed, initial),
+      style: buildStyle(palette()),
+      layout: { name: "preset" },
+      minZoom: 0.2, maxZoom: 4, wheelSensitivity: 0.25,
+    });
+    cyRef.current = cy;
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __cy?: cytoscape.Core }).__cy = cy;
+    cy.fit(undefined, 40);
+
+    const refresh = () => {
+      const c: Record<string, number> = { reference: 0, supersedes: 0, defines_term: 0, similar: 0 };
+      cy.edges().forEach((e) => { c[e.data("type")] = (c[e.data("type")] ?? 0) + 1; });
+      setCounts(c);
+      setStats({ nodes: cy.nodes().length, edges: cy.edges().length });
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    refresh();
+
+    const expand = async (id: number) => {
+      if (busyRef.current.has(id) || expandedRef.current.has(id)) return;
+      busyRef.current.add(id); setPendingId(id);
+      try {
+        const res = await fetch(`/api/clause/${id}/graph`);
+        const data: { neighbours: (NodeData & { edge_type: string })[] } = await res.json();
+        const parent = cy.getElementById(String(id));
+        const pp = parent.position();
+        const add: cytoscape.ElementDefinition[] = [];
+        let added = 0, overflow = false;
+        data.neighbours.forEach((nb, i) => {
+          const sid = String(nb.id);
+          if (cy.getElementById(sid).empty() && !add.some((a) => a.data.id === sid)) {
+            if (cy.nodes().length + added >= MAX_NODES) { overflow = true; return; }
+            added++;
+            const ang = (i / Math.max(data.neighbours.length, 1)) * Math.PI * 2;
+            add.push({ group: "nodes", data: {
+              id: sid, label: String(nb.path).replace(/^DEF-/, "◆ "), path: nb.path,
+              std: nb.std, obl: nb.obl, text: nb.text, expanded: 0,
+            } as NodeData, position: { x: pp.x + Math.cos(ang) * 70, y: pp.y + Math.sin(ang) * 70 } });
+          }
+          const k = edgeKey(id, Number(nb.id), nb.edge_type);
+          const present = !cy.getElementById(sid).empty() || add.some((a) => a.data.id === sid);
+          if (cy.getElementById(k).empty() && !add.some((a) => a.data.id === k) && present) {
+            add.push({ group: "edges", data: { id: k, source: String(id), target: sid, type: nb.edge_type } });
+          }
+        });
+        parent.data("expanded", 1);
+        if (add.length) cy.add(add);
+        TYPES.forEach((t) => { if (hiddenRef.current.has(t)) cy.edges(`[type = "${t}"]`).addClass("hide"); });
+        expandedRef.current.add(id);
+        if (overflow) setCapped(true);
+        refresh();
+      } finally {
+        busyRef.current.delete(id);
+        setPendingId((p) => (p === id ? null : p));
+      }
+    };
+    expandRef.current = (id) => { void expand(id); };
+
+    const select = (n: cytoscape.NodeSingular) => {
+      cy.nodes().removeClass("sel dim"); cy.edges().removeClass("dim");
+      n.addClass("sel");
+      const others = cy.elements().difference(n.closedNeighborhood());
+      others.addClass("dim");
+      setSelected(n.data() as NodeData);
+    };
+
+    cy.on("tap", "node", (e) => {
+      const n = e.target as cytoscape.NodeSingular;
+      const id = Number(n.id());
+      const now = e.timeStamp || 0;
+      if (lastTap.current.id === id && now - lastTap.current.t < 350) {
+        router.push(`/clause/${id}`); // double-tap = open the full clause
+        return;
+      }
+      lastTap.current = { id, t: now };
+      select(n);
+      if (!n.data("expanded")) void expand(id);
+    });
+    cy.on("tap", (e) => {
+      if (e.target === cy) {
+        cy.nodes().removeClass("sel dim"); cy.edges().removeClass("dim");
+        setSelected(null);
+      }
+    });
+
+    return () => { cy.destroy(); cyRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed, initial]);
+
+  // keep a ref of hidden for the async expand closure
+  useEffect(() => {
+    hiddenRef.current = hidden;
+    const cy = cyRef.current; if (!cy) return;
+    TYPES.forEach((t) => {
+      const eds = cy.edges(`[type = "${t}"]`);
+      if (hidden.has(t)) eds.addClass("hide"); else eds.removeClass("hide");
+    });
+  }, [hidden]);
+
+  // re-theme the canvas when the app theme flips
+  useEffect(() => {
+    const obs = new MutationObserver(() => cyRef.current?.style(buildStyle(palette())));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => obs.disconnect();
   }, []);
 
-  const toWorld = (clientX: number, clientY: number) => {
-    const el = svgRef.current!;
-    const pt = el.createSVGPoint(); pt.x = clientX; pt.y = clientY;
-    const v = pt.matrixTransform(el.getScreenCTM()!.inverse());
-    return { x: (v.x - tRef.current.tx) / tRef.current.k, y: (v.y - tRef.current.ty) / tRef.current.k };
-  };
-
-  async function expand(id: number) {
-    if (busy.has(id)) return;
-    setBusy((b) => new Set(b).add(id));
-    try {
-      const res = await fetch(`/api/clause/${id}/graph`);
-      const data: { neighbours: (Meta & { edge_type: string })[] } = await res.json();
-      expandedRef.current.add(id);
-      const cur = graphRef.current;
-      const nodeIds = new Set(cur.nodes.map((n) => n.id));
-      const ekeys = new Set(cur.edges.map((e) => e.key));
-      const center = posRef.current.get(id) ?? { x: 0, y: 0 };
-      const addN: SimNode[] = []; const addE: SimEdge[] = [];
-      let overflow = false;
-      data.neighbours.forEach((nb, i) => {
-        if (!nodeIds.has(nb.id)) {
-          if (cur.nodes.length + addN.length >= MAX_NODES) { overflow = true; return; }
-          nodeIds.add(nb.id);
-          addN.push({ id: nb.id, clause_path: nb.clause_path, standard_id: nb.standard_id,
-            standard_title: nb.standard_title, obligation_type: nb.obligation_type, text: nb.text, expanded: false });
-          const ang = (i / Math.max(data.neighbours.length, 1)) * Math.PI * 2;
-          posRef.current.set(nb.id, { x: center.x + Math.cos(ang) * 55, y: center.y + Math.sin(ang) * 55, vx: 0, vy: 0, fx: null, fy: null });
-        }
-        const k = edgeKey(id, nb.id, nb.edge_type);
-        if (!ekeys.has(k) && nodeIds.has(nb.id)) { ekeys.add(k); addE.push({ key: k, src: id, dst: nb.id, type: nb.edge_type }); }
-      });
-      if (overflow) setCapped(true);
-      setNodes((pn) => pn.map((n) => (n.id === id ? { ...n, expanded: true } : n)).concat(addN));
-      setEdges((pe) => pe.concat(addE));
-    } finally {
-      setBusy((b) => { const n = new Set(b); n.delete(id); return n; });
-    }
-  }
-
-  function handleNodeClick(id: number) {
-    setSelected(id);
-    if (!expandedRef.current.has(id)) expand(id);
-  }
-
-  // pointer plumbing: node drag vs background pan vs click
-  const onNodeDown = (id: number) => (e: React.PointerEvent) => {
-    e.stopPropagation();
-    svgRef.current?.setPointerCapture(e.pointerId);
-    nodeDragRef.current = { id, sx: e.clientX, sy: e.clientY, moved: false };
-    const p = posRef.current.get(id); if (p) { p.fx = p.x; p.fy = p.y; }
-  };
-  const onSvgDown = (e: React.PointerEvent) => {
-    panRef.current = { x: e.clientX, y: e.clientY, tx: tRef.current.tx, ty: tRef.current.ty, moved: false };
-    svgRef.current?.setPointerCapture(e.pointerId);
-  };
-  const onSvgMove = (e: React.PointerEvent) => {
-    if (nodeDragRef.current) {
-      const nd = nodeDragRef.current, w = toWorld(e.clientX, e.clientY), p = posRef.current.get(nd.id);
-      if (p) { p.fx = w.x; p.fy = w.y; p.x = w.x; p.y = w.y; }
-      if (Math.abs(e.clientX - nd.sx) + Math.abs(e.clientY - nd.sy) > 3) nd.moved = true;
-      startSim(0.3);
-      return;
-    }
-    if (panRef.current) {
-      const ctm = svgRef.current!.getScreenCTM()!;
-      const dx = (e.clientX - panRef.current.x) / ctm.a, dy = (e.clientY - panRef.current.y) / ctm.d;
-      const nt = { k: tRef.current.k, tx: panRef.current.tx + dx, ty: panRef.current.ty + dy };
-      tRef.current = nt; setT(nt); panRef.current.moved = true;
-    }
-  };
-  const onSvgUp = () => {
-    if (nodeDragRef.current) {
-      const nd = nodeDragRef.current; const p = posRef.current.get(nd.id);
-      if (p) { p.fx = null; p.fy = null; }
-      nodeDragRef.current = null;
-      if (!nd.moved) handleNodeClick(nd.id);
-      return;
-    }
-    panRef.current = null;
-  };
-
   function reset() {
-    const fresh = buildInitial(seed, initial);
-    posRef.current = fresh.pos; expandedRef.current = fresh.expandedIds;
-    gRefs.current.clear(); eRefs.current.clear();
-    setNodes(fresh.nodes); setEdges(fresh.edges);
-    setSelected(seed); setHover(null); setCapped(false);
-    tRef.current = { k: 1, tx: 0, ty: 0 }; setT({ k: 1, tx: 0, ty: 0 });
+    const cy = cyRef.current; if (!cy) return;
+    cy.elements().remove();
+    cy.add(buildElements(seed, initial));
+    expandedRef.current = new Set(initial.filter((n) => n.depth <= 1).map((n) => n.id));
+    setSelected(null); setCapped(false);
+    cy.fit(undefined, 40);
+    const c: Record<string, number> = { reference: 0, supersedes: 0, defines_term: 0, similar: 0 };
+    cy.edges().forEach((e) => { c[e.data("type")] = (c[e.data("type")] ?? 0) + 1; });
+    setCounts(c); setStats({ nodes: cy.nodes().length, edges: cy.edges().length });
   }
-
-  const keep = hover == null ? null : new Set<number>([hover, ...(adj.get(hover) ?? [])]);
-  const focusId = selected ?? hover ?? seed;
-  const focus = nodes.find((n) => n.id === focusId);
-  const focusEdge = focus ? edges.find((e) => e.dst === focus.id || e.src === focus.id) : undefined;
 
   return (
     <div className="cg-stage">
       <div className="cg-toolbar">
-        <span className="cg-count">{nodes.length} clauses &middot; {edges.length} links</span>
+        <span className="cg-count">{stats.nodes} clauses &middot; {stats.edges} links</span>
+        <button className="cg-btn" onClick={() => cyRef.current?.fit(undefined, 40)}>Fit</button>
         <button className="cg-btn" onClick={reset}>Reset</button>
       </div>
 
-      <svg
-        ref={svgRef}
-        className="cg-svg"
-        viewBox="-500 -420 1000 840"
-        preserveAspectRatio="xMidYMid meet"
-        role="img"
-        aria-label="Interactive graph of linked clauses"
-        onPointerDown={onSvgDown}
-        onPointerMove={onSvgMove}
-        onPointerUp={onSvgUp}
-        onPointerLeave={() => { onSvgUp(); setHover(null); }}
-      >
-        <g transform={`translate(${t.tx} ${t.ty}) scale(${t.k})`}>
-          <g>
-            {edges.map((e) => (
-              <path
-                key={e.key}
-                ref={(el) => {
-                  if (el) {
-                    eRefs.current.set(e.key, el);
-                    const s = posRef.current.get(e.src), u = posRef.current.get(e.dst);
-                    if (s && u) el.setAttribute("d", edgeD(s, u));
-                  } else eRefs.current.delete(e.key);
-                }}
-                className={`cg-edge cg-e-${e.type}${keep && e.src !== hover && e.dst !== hover ? " faded" : ""}${hidden.has(e.type) ? " hidden" : ""}`}
-                strokeWidth={e.type === "similar" ? 1.1 : 1.8}
-                style={{ opacity: e.type === "similar" ? 0.4 : 0.72 }}
-              />
-            ))}
-          </g>
-          <g>
-            {nodes.map((n) => {
-              const isSeed = n.id === seed;
-              const r = isSeed ? 14 : 8;
-              const faded = keep ? !keep.has(n.id) : false;
-              const cls = [
-                "cg-node",
-                isSeed ? "cg-seed" : n.expanded ? "cg-open" : "cg-shut",
-                faded ? "faded" : "",
-                keep?.has(n.id) ? "show" : "",
-                n.id === selected ? "sel" : "",
-                busy.has(n.id) ? "busy" : "",
-              ].join(" ");
-              return (
-                <g
-                  key={n.id}
-                  ref={(el) => {
-                    if (el) {
-                      gRefs.current.set(n.id, el);
-                      const p = posRef.current.get(n.id);
-                      if (p) el.setAttribute("transform", nodeTf(p));
-                    } else gRefs.current.delete(n.id);
-                  }}
-                  className={cls}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`${n.clause_path}${n.expanded ? "" : " — expand"}`}
-                  onPointerDown={onNodeDown(n.id)}
-                  onMouseEnter={() => setHover(n.id)}
-                  onMouseLeave={() => setHover(null)}
-                  onFocus={() => setHover(n.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleNodeClick(n.id); } }}
-                >
-                  <circle r={r} />
-                  {!isSeed && !n.expanded && <text className="cg-plus" y={3.2} textAnchor="middle">+</text>}
-                  <text className="cg-lbl-t" x={isSeed ? 0 : r + 5} y={isSeed ? r + 16 : 3.5} textAnchor={isSeed ? "middle" : "start"}>
-                    {n.clause_path.replace(/^DEF-/, "◆ ")}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        </g>
-      </svg>
+      <div className="cg-canvas" ref={containerRef} />
 
       <div className="cg-legend">
         <div className="cg-lg-title">Edge type — click to filter</div>
@@ -388,34 +258,27 @@ export function ClauseGraph({ seed, nodes: initial }: { seed: number; nodes: Gra
         ))}
       </div>
 
-      {focus && (
+      {selected && (
         <aside className="cg-panel">
-          <div className="cg-p-path">{focus.clause_path.startsWith("DEF-") ? focus.clause_path.slice(4) : focus.clause_path}</div>
+          <div className="cg-p-path">{selected.path.startsWith("DEF-") ? selected.path.slice(4) : selected.path}</div>
           <div className="cg-p-badges">
-            <span className="cg-badge">{focus.standard_title}</span>
-            <span className={`cg-badge ob-${focus.obligation_type}`}>{focus.obligation_type}</span>
+            <span className="cg-badge">{selected.std}</span>
+            <span className={`cg-badge ob-${selected.obl}`}>{selected.obl}</span>
           </div>
-          <div className="cg-p-via">
-            {focus.id === seed ? (
-              <><span className="cg-vdot cg-dot-seed" /> the <b>seed</b> clause you are viewing</>
-            ) : focusEdge ? (
-              <><span className={`cg-vdot cg-dot-${focusEdge.type}`} /> linked by <b>{TYPE_LABEL[focusEdge.type]}</b></>
-            ) : null}
-          </div>
-          <p className="cg-p-text">{focus.text}</p>
+          <p className="cg-p-text">{selected.text}</p>
           <div className="cg-p-actions">
-            {focus.id !== seed && !expandedRef.current.has(focus.id) && (
-              <button className="cg-btn" onClick={() => expand(focus.id)} disabled={busy.has(focus.id)}>
-                {busy.has(focus.id) ? "Loading…" : "Expand neighbours"}
+            {!expandedRef.current.has(Number(selected.id)) && (
+              <button className="cg-btn" onClick={() => expandRef.current(Number(selected.id))} disabled={pendingId === Number(selected.id)}>
+                {pendingId === Number(selected.id) ? "Loading…" : "Expand neighbours"}
               </button>
             )}
-            <Link className="cg-open-link" href={`/clause/${focus.id}`}>Open full clause &rarr;</Link>
+            <Link className="cg-open-link" href={`/clause/${selected.id}`}>Open full clause &rarr;</Link>
           </div>
         </aside>
       )}
 
       {capped && <div className="cg-cap">Showing the first {MAX_NODES} clauses — reset to explore elsewhere.</div>}
-      <div className="cg-hint">click a node to pull in its neighbours &middot; drag nodes &middot; scroll to zoom</div>
+      <div className="cg-hint">click a node to expand &middot; double-click to open it &middot; drag &middot; scroll to zoom</div>
     </div>
   );
 }

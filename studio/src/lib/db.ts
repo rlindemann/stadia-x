@@ -152,7 +152,10 @@ fused as (
 select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher, c.clause_path, c.heading_trail,
        c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
-       f.score::float8 as score, f.dense_rnk, f.qdense_rnk, f.lex_rnk,
+       (f.score
+         * case when s.status = 'Superseded' then 0.6 else 1 end
+         * case when c.block_type = 'definition' then 0.7 else 1 end)::float8 as score,
+       f.dense_rnk, f.qdense_rnk, f.lex_rnk,
        (1 - (c.embedding <=> $1::vector))::float8 as dense_sim,
        ts_rank(c.tsv, websearch_to_tsquery('english', $2))::float8 as lex_score,
        bq.question as matched_question,
@@ -165,7 +168,7 @@ left join lateral (
   from clause_questions cq
   where cq.clause_id = c.id order by cq.embedding <=> $1::vector limit 1
 ) bq on true
-order by f.score * case when s.status = 'Superseded' then 0.6 else 1 end desc
+order by score desc
 limit ${limitParam}
 `;
   return query<SearchHit>(sql, params);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { SaveButton } from "@/components/save-button";
 
 type Hit = {
@@ -30,6 +30,19 @@ type Hit = {
   matched_question: string | null;
 };
 
+type Figure = {
+  id: number;
+  clause_id: number;
+  kind: string;
+  image_url: string | null;
+  transcription: string;
+  page: number;
+  standard_id: string;
+  standard_title: string;
+  clause_path: string | null;
+  sim: number;
+};
+
 type Expansion = { matched: string; added: string[] };
 type Facets = {
   publishers: string[];
@@ -45,6 +58,33 @@ const OB_CLASS: Record<string, string> = {
   informative: "info",
 };
 
+// Query terms for match-highlighting: content words from the query plus any
+// synonym expansions, minus short/stop words.
+const STOP = new Set([
+  "the", "and", "for", "are", "with", "that", "this", "from", "must", "shall", "should", "may",
+  "what", "how", "which", "when", "where", "who", "does", "can", "was", "were", "has", "have",
+  "had", "its", "into", "per", "not", "all", "any", "each", "you", "your", "about", "there",
+]);
+function queryTerms(q: string, expansions: Expansion[]): string[] {
+  const words = (s: string) => s.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const all = [...words(q), ...expansions.flatMap((e) => e.added.flatMap(words))];
+  return Array.from(new Set(all.filter((t) => t.length >= 3 && !STOP.has(t))));
+}
+function highlight(text: string, terms: string[]): ReactNode {
+  if (!terms.length || !text) return text;
+  const re = new RegExp(`\\b(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\w*`, "gi");
+  const out: ReactNode[] = [];
+  let last = 0, key = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<mark className="hl" key={key++}>{m[0]}</mark>);
+    last = m.index + m[0].length;
+    if (m.index === re.lastIndex) re.lastIndex++;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 const EXAMPLES = [
   "control room requirements",
   "dressing room showers",
@@ -55,6 +95,7 @@ const EXAMPLES = [
 export function SearchView() {
   const [text, setText] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
+  const [figures, setFigures] = useState<Figure[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState<string | null>(null);
@@ -117,6 +158,7 @@ export function SearchView() {
       const data = await r.json();
       if (data.error) throw new Error(data.error);
       setHits(data.results ?? []);
+      setFigures(data.figures ?? []);
       setExpansions(data.expansions ?? []);
       setSearched(query);
     } catch (e) {
@@ -146,10 +188,16 @@ export function SearchView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obligation, publisher, standard, currentOnly]);
 
-  // Keyword scores (ts_rank) have no fixed scale — show strength relative to the
-  // strongest keyword match in the result set.
-  const maxLex = Math.max(1e-9, ...hits.map((h) => h.lex_score));
-  const RRF_MAX = 3 / 61; // #1 in all three signals
+  const RRF_MAX = 3 / 61; // #1 in all three signals -> upper bound on the fused score
+  const terms = searched ? queryTerms(searched, expansions) : [];
+  const resultIds = new Set(hits.map((h) => h.id));
+  const figByClause = new Map<number, Figure>();
+  for (const f of figures) if (!figByClause.has(f.clause_id)) figByClause.set(f.clause_id, f);
+  // Tables/figures whose clause the text search missed — surface them on their own.
+  const standaloneFigs = figures
+    .filter((f) => !resultIds.has(f.clause_id))
+    .filter((f, i, arr) => arr.findIndex((x) => x.clause_id === f.clause_id) === i)
+    .slice(0, 3);
 
   const obligations = facets?.obligations ?? ["requirement", "recommendation", "permission", "informative"];
 
@@ -270,14 +318,41 @@ export function SearchView() {
 
       {error && <div className="empty">Search error: {error}</div>}
 
+      {searched && standaloneFigs.length > 0 && (
+        <div className="fig-strip">
+          <div className="fig-strip-lbl">Matching tables &amp; figures</div>
+          <div className="fig-strip-items">
+            {standaloneFigs.map((f) => (
+              <Link key={f.id} href={`/clause/${f.clause_id}`} className="fig-card">
+                {f.image_url && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={f.image_url} alt={`${f.kind} on page ${f.page}`} loading="lazy" />
+                )}
+                <div className="fig-card-meta">
+                  <span className="fig-card-where">
+                    {f.clause_path ?? "—"} · {f.standard_title} · p.{f.page}
+                  </span>
+                  <span className="fig-card-text">{f.transcription.slice(0, 140)}…</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="list">
         {searched && hits.length === 0 && !loading && (
           <div className="empty">No clauses match “{searched}”.</div>
         )}
         {hits.map((h) => {
-          const semantic = Math.max(h.dense_sim, h.q_sim ?? 0);
-          const keyword = h.lex_score / maxLex;
           const combined = Math.min(1, h.score / RRF_MAX);
+          const fig = figByClause.get(h.id);
+          const why = [
+            h.dense_rnk != null && { k: "meaning", label: "Meaning" },
+            h.lex_rnk != null && h.lex_score > 0 && { k: "wording", label: "Wording" },
+            h.qdense_rnk != null && h.matched_question && { k: "question", label: "Answers a question" },
+            fig && { k: "table", label: fig.kind === "figure" ? "Figure" : "Table" },
+          ].filter(Boolean) as { k: string; label: string }[];
           return (
           <article className="row" key={h.id}>
             <div className="row-top">
@@ -292,19 +367,13 @@ export function SearchView() {
                 {h.standard_status === "Superseded" && <span className="tag-super">Superseded</span>}
               </div>
               <div className="scores">
-                {[
-                  { lbl: "Semantic", v: semantic, cls: "sc-sem" },
-                  { lbl: "Keyword", v: keyword, cls: "sc-key" },
-                  { lbl: "Combined", v: combined, cls: "sc-comb" },
-                ].map((s) => (
-                  <div className="score-row" key={s.lbl}>
-                    <span className="score-lbl">{s.lbl}</span>
-                    <span className="score-bar">
-                      <i className={s.cls} style={{ ["--w" as string]: `${Math.round(s.v * 100)}%` }} />
-                    </span>
-                    <span className="score-val">{Math.round(s.v * 100)}</span>
-                  </div>
-                ))}
+                <div className="score-row">
+                  <span className="score-lbl">Relevance</span>
+                  <span className="score-bar">
+                    <i className="sc-comb" style={{ ["--w" as string]: `${Math.round(combined * 100)}%` }} />
+                  </span>
+                  <span className="score-val">{Math.round(combined * 100)}</span>
+                </div>
               </div>
             </div>
 
@@ -317,12 +386,34 @@ export function SearchView() {
               </span>
             </div>
 
-            <p className="quote">{h.verbatim_text}</p>
+            {why.length > 0 && (
+              <div className="why">
+                <span className="why-lbl">Matched on</span>
+                {why.map((w) => (
+                  <span key={w.k} className={`why-chip wc-${w.k}`}>{w.label}</span>
+                ))}
+              </div>
+            )}
+
+            <p className="quote">{highlight(h.verbatim_text, terms)}</p>
 
             {h.matched_question && (
               <div className="matchq">
-                <span className="ml">Matched question</span> {h.matched_question}
+                <span className="ml">Answers</span> {highlight(h.matched_question, terms)}
               </div>
+            )}
+
+            {fig && (
+              <Link href={`/clause/${h.id}`} className="fig-inline">
+                {fig.image_url && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={fig.image_url} alt={`${fig.kind} on page ${fig.page}`} loading="lazy" />
+                )}
+                <span className="fig-cap">
+                  <b>{fig.kind === "figure" ? "Figure" : "Table"} · p.{fig.page}</b>{" "}
+                  {fig.transcription.slice(0, 120)}…
+                </span>
+              </Link>
             )}
 
             <div className="src">

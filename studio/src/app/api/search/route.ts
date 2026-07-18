@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedQuery, hybridSearch, type SearchFilters } from "@/lib/db";
+import { embedQuery, figureSearch, hybridSearch, type SearchFilters } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const FIG_MIN = 0.4; // only surface tables/figures that clearly relate to the query
 
 async function run(query: string, limit: number, filters: SearchFilters) {
   // Embed the natural-language query; expand only the lexical side with synonyms
   // so acronym/synonym recall improves without diluting the semantic vector.
   const { lexQuery, expansions } = expandLexicalQuery(query);
   const embedding = await embedQuery(query);
-  const results = await hybridSearch(lexQuery, embedding, Math.min(limit, 50), filters);
-  return NextResponse.json({ query, expansions, count: results.length, results });
+  const [results, figuresRaw] = await Promise.all([
+    hybridSearch(lexQuery, embedding, Math.min(limit, 50), filters),
+    figureSearch(embedding, 6),
+  ]);
+  // Surface matching tables/figures alongside clause text, honouring the standard filter.
+  let figures = figuresRaw.filter((f) => f.sim >= FIG_MIN);
+  if (filters.standardId?.length) figures = figures.filter((f) => filters.standardId!.includes(f.standard_id));
+  return NextResponse.json({ query, expansions, count: results.length, results, figures });
 }
 
 function csv(v: string | null): string[] | undefined {

@@ -6,6 +6,8 @@
 // Kept deliberately small and hand-curated — this is recall help, not a thesaurus.
 const GROUPS: string[][] = [
   ["field of play", "FoP", "playing field", "pitch"],
+  // 2026 renamed the security/operations "Control Room" to "Venue Operation Centre".
+  ["control room", "venue operation centre", "venue operation center"],
   ["run-off", "run off", "clear space", "safety margin"],
   ["technical area", "dugout", "team bench"],
   ["dressing room", "changing room", "locker room"],

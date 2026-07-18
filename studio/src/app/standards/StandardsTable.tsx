@@ -35,8 +35,8 @@ export function StandardsTable({ standards }: { standards: StandardRow[] }) {
                 <tr
                   key={s.id}
                   className="row-clickable"
-                  title="Open in the review viewer"
-                  onClick={() => router.push(`/review?doc=${encodeURIComponent(s.id)}`)}
+                  title="Browse this standard's clauses"
+                  onClick={() => router.push(`/standards/${encodeURIComponent(s.id)}`)}
                   onMouseEnter={() => s.thumb_url && setHover(s)}
                   onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setHover(null)}

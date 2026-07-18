@@ -693,6 +693,30 @@ export async function getClauseDetail(id: number): Promise<ClauseDetail | null> 
   return { ...base, references, term_defs, prev: prev[0] ?? null, next: next[0] ?? null };
 }
 
+export type StandardClauseRow = {
+  id: number;
+  clause_path: string;
+  heading_trail: string | null;
+  page: number;
+  obligation_type: string;
+  normativity: string;
+  text: string;
+};
+
+// Lightweight clause list for a standard's browse page (each row links to the
+// clause page). Ordered as they appear in the document.
+export function listStandardClauses(standardId: string): Promise<StandardClauseRow[]> {
+  return query<StandardClauseRow>(
+    `select c.id, c.clause_path, c.heading_trail, c.page, c.obligation_type, c.normativity,
+            left(c.verbatim_text, 200) as text
+     from clauses c
+     join standards s on s.id = c.standard_id
+     where c.standard_id = $1 and ${PUBLISHED}
+     order by c.pdf_file_page, c.id`,
+    [standardId],
+  );
+}
+
 export function listClauses(standardId: string): Promise<ReviewClause[]> {
   return query<ReviewClause>(
     `select c.id, c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.block_type,

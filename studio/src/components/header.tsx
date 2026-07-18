@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
+import { ClauseJump } from "./clause-jump";
 
 const NAV = [
   { href: "/ask", label: "Ask" },
   { href: "/", label: "Search" },
   { href: "/standards", label: "Standards" },
+  { href: "/clauses", label: "Clauses" },
   { href: "/analyze", label: "Analyze" },
   { href: "/terms", label: "Defined terms" },
   { href: "/collections", label: "Collections" },
@@ -35,6 +37,7 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          <ClauseJump />
           <ThemeToggle />
         </nav>
       </div>

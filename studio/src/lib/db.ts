@@ -717,6 +717,52 @@ export function listStandardClauses(standardId: string): Promise<StandardClauseR
   );
 }
 
+export type AllClauseRow = {
+  id: number;
+  clause_path: string;
+  standard_id: string;
+  standard_title: string;
+  standard_status: string | null;
+  obligation_type: string;
+  page: number;
+  text: string;
+};
+
+// Every clause across every published standard, for the global /clauses browse page.
+export function listAllClauses(): Promise<AllClauseRow[]> {
+  return query<AllClauseRow>(
+    `select c.id, c.clause_path, c.standard_id, s.title as standard_title, s.status as standard_status,
+            c.obligation_type, c.page, left(c.verbatim_text, 160) as text
+     from clauses c join standards s on s.id = c.standard_id
+     where ${PUBLISHED}
+     order by s.status = 'Superseded', s.title, c.pdf_file_page, c.id`,
+    [],
+  );
+}
+
+export type ClauseFindRow = {
+  id: number;
+  clause_path: string;
+  standard_id: string;
+  standard_title: string;
+  obligation_type: string;
+  text: string;
+};
+
+// Fast clause lookup for the header jump box: substring match on number/heading/
+// text, ranked so clause-number prefix matches come first. Cheap ILIKE, no embeddings.
+export function findClauses(q: string, limit = 8): Promise<ClauseFindRow[]> {
+  return query<ClauseFindRow>(
+    `select c.id, c.clause_path, c.standard_id, s.title as standard_title, c.obligation_type,
+            left(c.verbatim_text, 90) as text
+     from clauses c join standards s on s.id = c.standard_id
+     where ${PUBLISHED} and (c.clause_path ilike $1 or c.heading_trail ilike $1 or c.verbatim_text ilike $1)
+     order by (c.clause_path ilike $2) desc, length(c.clause_path), c.clause_path, s.title
+     limit $3`,
+    [`%${q}%`, `${q}%`, limit],
+  );
+}
+
 export function listClauses(standardId: string): Promise<ReviewClause[]> {
   return query<ReviewClause>(
     `select c.id, c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.block_type,

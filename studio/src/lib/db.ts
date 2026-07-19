@@ -644,6 +644,47 @@ export type CategoryRequirement = {
   clause_path: string | null;
 };
 
+// Applicability rows for a category across all published standards that have matrices,
+// for injecting into Ask when a question names a category. Carries clause_id so answers
+// can cite. Excludes non-applicable cells.
+export type ApplicabilityContext = {
+  clause_id: number | null;
+  clause_path: string | null;
+  standard_title: string;
+  req_ref: string | null;
+  requirement: string;
+  value: string | null;
+  modality: string;
+};
+export function getCategoryApplicability(category: string, limit = 90): Promise<ApplicabilityContext[]> {
+  return query<ApplicabilityContext>(
+    `select a.clause_id, c.clause_path, s.title as standard_title, a.req_ref, a.requirement, a.value, a.modality
+     from clause_applicability a
+     join standards s on s.id = a.standard_id
+     left join clauses c on c.id = a.clause_id
+     where a.category = $1 and a.modality <> 'non_applicable' and ${PUBLISHED}
+     order by array_position(array['mandatory','best_practice'], a.modality), a.req_ref nulls last, a.id
+     limit $2`,
+    [category, limit],
+  );
+}
+
+// Resolve clauses by id into SearchHit shape (score 0; context, not ranked hits) so
+// citations from injected applicability rows resolve in the Ask response.
+export function getClausesByIds(ids: number[]): Promise<SearchHit[]> {
+  if (ids.length === 0) return Promise.resolve([]);
+  return query<SearchHit>(
+    `select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity,
+            c.verbatim_text, c.defined_terms, c.uri, s.source_url,
+            0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
+            0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score, null::text as matched_question
+     from clauses c join standards s on s.id = c.standard_id
+     where c.id = any($1) and ${PUBLISHED}`,
+    [ids],
+  );
+}
+
 // Every requirement that applies to a stadium category for a standard (the answer to
 // "what must a Category B stadium comply with?"). Non-applicable cells are excluded.
 export function getCategoryRequirements(standardId: string, category: string): Promise<CategoryRequirement[]> {

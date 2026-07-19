@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, figureSearch, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
+import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 const EDGE_LABEL: Record<string, string> = {
@@ -76,6 +76,23 @@ export async function POST(req: NextRequest) {
       ? (await graphExpand(hits.map((h) => h.id), 8)).filter((e) => !seen.has(e.id))
       : [];
 
+    // Category-applicability: if the question names a Stadium Category, inject the
+    // structured per-category requirements (the compliance-matrix rows) so the answer
+    // is precise on "what must a Category X stadium do?" and cites the clause.
+    const catMatch = question.match(/\b(?:cat(?:egory)?|class)\s*([a-e])\b/i);
+    const category = catMatch ? catMatch[1].toUpperCase() : null;
+    const applicability = category ? await getCategoryApplicability(category) : [];
+    const applIds = [...new Set(applicability.map((a) => a.clause_id).filter((id): id is number => id != null))]
+      .filter((id) => !seen.has(id));
+    const applClauses = applIds.length ? await getClausesByIds(applIds) : [];
+    applClauses.forEach((c) => seen.add(c.id));
+    const applicabilityBlock = applicability.length
+      ? `\n\nStructured requirements that apply to Stadium Category ${category} (from the compliance matrices; authoritative for category-specific requirements — use these and cite the clause id shown):\n\n` +
+        applicability
+          .map((a) => `[[${a.clause_id}]] ${a.standard_title} — ${a.req_ref ?? ""} ${a.requirement}: Category ${category} = ${a.value} (${a.modality})`)
+          .join("\n")
+      : "";
+
     // Figures/tables whose transcription matches the question — makes diagram/
     // matrix content answerable. Attach to their owning clause id.
     const figures = (await figureSearch(embedding, 3)).filter((f) => f.sim >= 0.35);
@@ -106,7 +123,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}${figureBlock}`,
+          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}${applicabilityBlock}${figureBlock}`,
         },
       ],
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
@@ -119,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       sufficient: parsed.sufficient,
       answer: parsed.answer,
-      clauses: [...hits, ...expanded],
+      clauses: [...hits, ...expanded, ...applClauses],
       expanded: expanded.map((e) => ({ id: e.id, edge_type: e.matched_question })),
       figures: figures.map((f) => ({
         id: f.id,

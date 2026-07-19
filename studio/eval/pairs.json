@@ -1,0 +1,78 @@
+[
+  {
+    "id": "control-room-contents",
+    "q": "what must a stadium control room contain?",
+    "clauses": ["10", "44.1"],
+    "facts": ["television surveillance", "communication"],
+    "note": "Security control room contents. 24051 §10.1 / 2021 §44.1; 2026 renamed it Venue Operation Centre."
+  },
+  {
+    "id": "doping-control-room",
+    "q": "does a stadium need a doping control room?",
+    "clauses": ["40.2"],
+    "facts": ["doping control room"],
+    "note": "2026 §40.2: at least one fully equipped doping control room."
+  },
+  {
+    "id": "corner-flag-poles",
+    "q": "how many corner flag poles are required at a stadium?",
+    "clauses": ["8.3"],
+    "facts": ["eight", "corner"],
+    "note": "2026 §8.3: two sets per corner, eight poles total."
+  },
+  {
+    "id": "team-dressing-rooms",
+    "q": "how many team dressing rooms must a stadium have?",
+    "clauses": ["15.1"],
+    "facts": ["two", "dressing room"],
+    "note": "2026 §15.1: minimum of two team dressing rooms."
+  },
+  {
+    "id": "medical-room",
+    "q": "is a medical room required at the stadium?",
+    "clauses": ["40.1"],
+    "facts": ["medical room"],
+    "note": "2026 §40.1: at least one fully equipped medical room."
+  },
+  {
+    "id": "first-aid-spectators",
+    "q": "do spectator areas need first aid facilities?",
+    "clauses": ["54.1"],
+    "facts": ["first aid"],
+    "note": "2026 §54.1: first aid facilities in each spectator sector."
+  },
+  {
+    "id": "goalposts",
+    "q": "what are the requirements for goalposts and crossbars?",
+    "clauses": ["8.1"],
+    "facts": ["laws of the game"],
+    "note": "2026 §8.1: goalposts per the Laws of the Game."
+  },
+  {
+    "id": "floodlight-illumination",
+    "q": "what illumination must stadium floodlights provide?",
+    "clauses": ["9.1", "9.1.1"],
+    "facts": ["illumination"],
+    "note": "2026 §9.1: floodlights with an illumination system maintaining a minimum average."
+  },
+  {
+    "id": "media-centre",
+    "q": "what must the stadium media centre accommodate?",
+    "clauses": ["25.1"],
+    "facts": ["media centre"],
+    "note": "2026 §25.1: media centre sized per stadium category."
+  },
+  {
+    "id": "venue-operation-centre",
+    "q": "what are the requirements for a venue operation centre?",
+    "clauses": ["51", "51.1"],
+    "facts": ["venue operation"],
+    "note": "2026 §51: Venue Operation Centre (the renamed control room). Exercises the synonym bridge."
+  },
+  {
+    "id": "out-of-scope-ticket-price",
+    "q": "what is the maximum ticket price a stadium may charge spectators?",
+    "abstain": true,
+    "note": "The infrastructure regulations do not set ticket prices. Ask must abstain, not invent a rule."
+  }
+]

@@ -612,6 +612,51 @@ export function figureSearch(embedding: number[], limit = 4): Promise<FigureHit[
   );
 }
 
+// APPLIES_TO: which stadium categories the compliance matrices cover, per standard.
+export type ApplicabilitySummary = {
+  standard_id: string;
+  standard_title: string;
+  category: string;
+  mandatory: number;
+  best_practice: number;
+};
+export function getApplicabilitySummary(): Promise<ApplicabilitySummary[]> {
+  return query<ApplicabilitySummary>(
+    `select a.standard_id, s.title as standard_title, a.category,
+            count(*) filter (where a.modality = 'mandatory')::int as mandatory,
+            count(*) filter (where a.modality = 'best_practice')::int as best_practice
+     from clause_applicability a
+     join standards s on s.id = a.standard_id
+     where ${PUBLISHED}
+     group by a.standard_id, s.title, a.category
+     order by s.title, a.category`,
+    [],
+  );
+}
+
+export type CategoryRequirement = {
+  id: number;
+  req_ref: string | null;
+  requirement: string;
+  value: string | null;
+  modality: string; // mandatory | best_practice
+  clause_id: number | null;
+  clause_path: string | null;
+};
+
+// Every requirement that applies to a stadium category for a standard (the answer to
+// "what must a Category B stadium comply with?"). Non-applicable cells are excluded.
+export function getCategoryRequirements(standardId: string, category: string): Promise<CategoryRequirement[]> {
+  return query<CategoryRequirement>(
+    `select a.id, a.req_ref, a.requirement, a.value, a.modality, a.clause_id, c.clause_path
+     from clause_applicability a
+     left join clauses c on c.id = a.clause_id
+     where a.standard_id = $1 and a.category = $2 and a.modality <> 'non_applicable'
+     order by array_position(array['mandatory','best_practice'], a.modality), a.req_ref nulls last, a.id`,
+    [standardId, category],
+  );
+}
+
 export type ClauseRef = {
   raw: string | null;
   reference_type: string | null;

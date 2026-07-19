@@ -93,6 +93,24 @@ create table if not exists clause_figures (
   meta          jsonb not null default '{}'
 );
 
+-- APPLIES_TO: one row per (requirement x stadium category) cell of a compliance
+-- matrix. Turns the "required per category" tables (which otherwise live only as
+-- free text inside clause_figures.transcription) into queryable structure, so
+-- "what must a Category B stadium comply with?" is answerable. Populated by
+-- ingest/applies_to.py from clause_figures.
+create table if not exists clause_applicability (
+  id          bigserial primary key,
+  standard_id text not null references standards(id) on delete cascade,
+  figure_id   bigint references clause_figures(id) on delete cascade,
+  clause_id   bigint references clauses(id) on delete set null,  -- best-matched clause for the requirement
+  req_ref     text,             -- the row reference, e.g. "15.2.1"
+  requirement text not null,    -- the row label / description
+  category    text not null,    -- A | B | C | D | E
+  value       text,             -- raw cell content ("8", "Min. 4", "mandatory")
+  modality    text not null,    -- mandatory | best_practice | non_applicable
+  meta        jsonb not null default '{}'
+);
+
 -- Indexes: HNSW cosine for semantic, GIN for full-text, plain for facets.
 create index if not exists clauses_embedding_idx on clauses using hnsw (embedding vector_cosine_ops);
 create index if not exists clause_questions_embedding_idx on clause_questions using hnsw (embedding vector_cosine_ops);
@@ -102,3 +120,5 @@ create index if not exists clauses_obligation_idx on clauses (obligation_type);
 create index if not exists clause_questions_clause_idx on clause_questions (clause_id);
 create index if not exists clause_edges_src_idx on clause_edges (src_clause);
 create index if not exists clause_edges_dst_idx on clause_edges (dst_clause);
+create index if not exists clause_applicability_cat_idx on clause_applicability (standard_id, category);
+create index if not exists clause_applicability_clause_idx on clause_applicability (clause_id);

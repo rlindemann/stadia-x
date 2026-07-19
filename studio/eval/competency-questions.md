@@ -10,9 +10,9 @@ Status: `[OK]` answerable now · `[PARTIAL]` works but shallow/manual · `[GAP]`
 
 | # | Competency question | Status | What it needs |
 |---|---|---|---|
-| 1 | What must a stadium contain to host a **Category A** match? | `[GAP]` | `APPLIES_TO(clause → category)` edges from the ✓/△/✗ matrices (currently free text in `clause_figures.transcription`) |
-| 2 | How many VVIP seats does a **Category B** stadium need? | `[GAP]` | APPLIES_TO + the per-category numeric table extracted as structured cells, not a figure caption |
-| 3 | Generate a full compliance checklist for a stadium targeting a given category. | `[GAP]` | APPLIES_TO + roll-up (the "compliance/metric tree" over categories) |
+| 1 | What must a stadium contain to host a **Category A** match? | `[OK]` | **built** — `clause_applicability` + the `/categories` page (`ingest/applies_to.py` parses the ✓/△ matrices into `APPLIES_TO(requirement → category, modality, value)` rows) |
+| 2 | How many VVIP seats does a **Category B** stadium need? | `[PARTIAL]` | covered when the requirement sits in a per-category matrix (now structured); a few numeric tables outside the matrices still read as prose |
+| 3 | Generate a full compliance checklist for a stadium targeting a given category. | `[OK]` | **built** — `/categories` groups mandatory vs best-practice per category with the per-category value and a link to each clause |
 | 4 | Which control-room requirements **changed** between the 2021, 2026 and 24051 editions? | `[PARTIAL]` | supersedes + edition diff exist, but the 2026 rename (Control Room → Venue Operation Centre) needs a `SAME_AS` link, not just the query-time synonym |
 | 5 | Which documents does the corpus **reference but not contain**? | `[PARTIAL]` | `refs` holds 141 unresolved external refs; answerable as a report but not surfaced anywhere |
 | 6 | What is the definition of "Stadium", and which clauses rely on it? | `[OK]` | terms + `defines_term` edges + clause page |
@@ -21,6 +21,6 @@ Status: `[OK]` answerable now · `[PARTIAL]` works but shallow/manual · `[GAP]`
 | 9 | List every mandatory (**shall**) requirement for spectator safety. | `[PARTIAL]` | obligation-type facet + topic search; no true "all requirements in scope X" aggregate |
 | 10 | Which clauses are informative vs normative? | `[OK]` | `normativity` field |
 
-**The signal:** the `[GAP]` rows (1, 2, 3) all point at the **same missing model element — `APPLIES_TO(category)`**. That is the one extraction/modeling investment that would unlock the core compliance question ("what must a Category X stadium do?"). Competency questions are how we know that, before building it.
+**The signal (resolved):** rows 1-3 all pointed at the same missing element — `APPLIES_TO(category)`. That has now been **built**: `ingest/applies_to.py` parses the compliance matrices into `clause_applicability` (285 cells, 53 requirements across Categories A-E for the 2026 edition), surfaced on `/categories`. This is competency questions doing their job — they named the one modeling investment, and it unlocked the core compliance question.
 
-**Next:** the `[OK]` rows can be promoted into `pairs.json` as graded regression pairs; the `[GAP]` rows are the roadmap.
+**Next:** the `[OK]` rows can be promoted into `pairs.json` as graded regression pairs; the remaining `[PARTIAL]` rows are the roadmap (edition-diff `SAME_AS`, numeric tables outside matrices, cross-standard aggregates).

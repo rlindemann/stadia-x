@@ -398,6 +398,28 @@ h1.title .g { color: var(--accent); }
 .cj-text { margin-top: 2px; font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cj-empty { padding: 10px 12px; font-size: 12px; color: var(--muted); }
 
+/* ---------------- Categories: requirements by stadium category (APPLIES_TO) ---------------- */
+.cat-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 8px 0 6px; }
+.cat-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.cat-pill { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); background: var(--raised);
+  border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: all .12s; }
+.cat-pill:hover:not(:disabled) { border-color: var(--accent); }
+.cat-pill.on { background: var(--accent); border-color: var(--accent); color: var(--raised); }
+.cat-pill:disabled { opacity: .35; cursor: not-allowed; }
+.cat-lead { font-size: 15px; color: var(--muted); margin: 14px 0 22px; max-width: 90ch; }
+.cat-lead b { color: var(--ink); }
+.cat-group { margin-bottom: 26px; }
+.cat-group-lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.cat-group-lbl.m { color: var(--shall); }
+.cat-group-lbl.b { color: var(--should); }
+.cat-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cat-item { display: flex; align-items: baseline; gap: 12px; padding: 8px 10px; border-left: 2px solid var(--line-2); transition: background .12s, border-color .12s; }
+.cat-item:hover { background: var(--panel); border-left-color: var(--accent); }
+.cat-ref { flex: none; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent-2); min-width: 56px; }
+a.cat-ref:hover { border-bottom: 1px solid var(--accent); }
+.cat-req { flex: 1; font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+.cat-val { flex: none; font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--accent-wash); border: 1px solid var(--line-2); border-radius: 4px; padding: 2px 9px; max-width: 40%; }
+
 /* ---------------- Admin: add-a-standard ---------------- */
 .adm-form { border: 1px solid var(--line-2); background: var(--panel); padding: 20px; }
 .adm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }

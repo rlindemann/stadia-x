@@ -98,6 +98,20 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
         />
       </div>
 
+      {clause.questions.length > 0 && (
+        <div className="cd-answers">
+          <div className="cd-answers-lbl">Questions this clause answers</div>
+          <div className="cd-answers-list">
+            {clause.questions.map((q, i) => (
+              <Link key={i} href={`/?q=${encodeURIComponent(q)}`} className="cd-answers-chip">
+                <span className="cd-answers-q">{q}</span>
+                <span className="cd-answers-go" aria-hidden>search &rarr;</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {figures.length > 0 && (
         <div className="cd-figs">
           <div className="cd-figs-lbl">
@@ -156,19 +170,6 @@ export default async function ClausePage({ params }: { params: Promise<{ id: str
                   )}
                   {r.reference_type && <span className="cd-reftype"> · {r.reference_type}</span>}
                 </li>
-              ))}
-            </ul>
-          ) : (
-            "—"
-          )}
-        </dd>
-
-        <dt>Anticipated questions</dt>
-        <dd>
-          {clause.questions.length ? (
-            <ul className="cd-q">
-              {clause.questions.map((q, i) => (
-                <li key={i}>{q}</li>
               ))}
             </ul>
           ) : (

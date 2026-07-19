@@ -576,6 +576,17 @@ h1.title .g { color: var(--accent); }
 .cd-refs, .cd-q { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .cd-reftype { color: var(--faint); font-family: var(--mono); font-size: 12px; }
 .cd-uri { font-family: var(--mono); font-size: 12.5px; color: var(--muted); word-break: break-all; }
+
+/* clause detail: "questions this clause answers" (the anticipated-questions index, surfaced) */
+.cd-answers { margin: 22px 0 26px; padding: 18px 20px; border: 1px solid var(--line); border-left: 2px solid var(--accent); background: var(--accent-wash); border-radius: 4px; }
+.cd-answers-lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 12px; }
+.cd-answers-list { display: flex; flex-direction: column; gap: 7px; }
+.cd-answers-chip { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 13px; background: var(--raised); border: 1px solid var(--line-2); border-radius: 6px; transition: border-color .12s, transform .08s; }
+.cd-answers-chip:hover { border-color: var(--accent); transform: translateX(2px); }
+.cd-answers-q { font-size: 14.5px; color: var(--ink); }
+.cd-answers-go { flex: none; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.cd-answers-chip:hover .cd-answers-go { color: var(--accent-2); }
+
 /* clause detail: extracted tables/figures */
 .cd-figs { margin: 6px 0 26px; }
 .cd-figs-lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin-bottom: 12px; }

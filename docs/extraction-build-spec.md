@@ -164,32 +164,11 @@ Rule: **every extractor must emit this shape.** If an extractor can't fill `ance
 
 ---
 
-## 8. Retrieval & quality intelligence (proven on stadia-x — apply to every extractor)
+## 8. Retrieval & quality intelligence
 
-Self-contained so this spec can be copied into any repo. These are the transferable
-learnings from the stadia-x build (clause-level RAG on Postgres), not stadia-x plumbing.
-
-### 8.1 Three "questions" that get conflated — keep them separate
-
-| Artifact | What | Job | When |
-|---|---|---|---|
-| **Anticipated / hypothetical questions** | LLM auto-writes 3-5 questions each chunk *answers*; stored **question-only** (chunk is the answer), embedded next to the chunk | **retrieval recall** — a user query IS a question, so query→question beats query→prose | index-time (rides the extraction pass) |
-| **Approved Q-A pairs** | Human-vetted: question + verified answer + source chunk | **trust / regression** — measure accuracy, catch regressions | eval-time |
-| **Competency questions** | Questions the whole system MUST answer; span many chunks | **scope / coverage** — decide what the *model* must support; unanswerable = a modeling gap | design-time |
-
-One-liner: anticipated = signpost (findability); approved Q-A = exam question with answer key (scoreability); competency = the syllabus (what to model). Each extractor keeps its own `pairs.json` (approved) and `competency-questions.md` (tagged OK/PARTIAL/GAP); stadia-x's live in `studio/eval/` as the worked example.
-
-### 8.2 The approved-Q-A eval harness (the pattern)
-
-A tiny script that hits the **live** Search/Answer endpoints with curated pairs and prints numbers. Pair shape: `{ q, clauses:[acceptable source ids], facts:[key phrases] }`; add `"abstain": true` for out-of-scope questions — the answerer MUST refuse (`sufficient:false`), not invent. Metrics: retrieval **found@K / hit@1 / hit@5 / MRR**; answer **cites-correct + facts-present + sufficient**. Non-zero exit on hard failure so it gates CI. Run after every ranking/prompt change — turns "feels right" into a number. Gotchas: compare `[[id]]` citation markers **as strings** (Postgres returns bigints as strings); a heading + its `.1` sub-clause may be merged under the parent path, so verify the real id when curating.
-
-### 8.3 Search-quality levers (evidence-driven, from real misses)
-
-- **De-rank glossary definitions** below substantive clauses (~0.7x on the fused score) — definitions are short and keyword-dense so they outrank the requirement on a topic search. Apply the multiplier to the *returned* score too, so the relevance bar stays monotonic with rank.
-- **Synonym bridge across editions/vocabularies** — when a doc renames a concept between versions, OR a hand-curated synonym group into the **lexical** query (not the semantic vector), both directions. Confirm the exact corpus surface form first; skip acronyms not actually used.
-- **Vector index = HNSW** (pgvector, cosine). A "metric tree" (KD/ball/VP/cover) is a different, older ANN family that collapses at high dimensions — don't use it for modern embeddings.
-- **Why-it-matched transparency** — surface concrete match signals (meaning / wording / answered-a-question / table) and highlight query terms in the snippet. Essential where users must trust *why* a result surfaced.
-
-### 8.4 The APPLIES_TO lesson (modeling, not retrieval)
-
-Matrix/table payloads carry the real `APPLIES_TO` structure — extract it as **edges, not prose**. stadia-x extracts ✓/△/✗ compliance matrices but only as free-text figure transcriptions, so "what must a Category B stadium comply with?" is unanswerable by query. A competency question ("everything that applies to X") is the signal you're missing this.
+The complete retrieval mechanism, ranking levers, quality controls, and gotchas live in
+**`retrieval-spec.md`** (single source of truth — a standalone, copy-anywhere doc). It
+covers: the three-signal hybrid + RRF, the 3-5 anticipated-questions index, HNSW vectors,
+synonym expansion, the de-rank levers, why-it-matched transparency, multimodal
+tables/figures, grounded/cited Ask + GraphRAG, the three question types + eval harness,
+and the APPLIES_TO gap. Every extractor should adopt those patterns.

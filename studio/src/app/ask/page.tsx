@@ -29,6 +29,8 @@ type Figure = {
 type AskResult = {
   sufficient: boolean;
   answer: string;
+  verified?: boolean;
+  issues?: string[];
   clauses: Clause[];
   expanded?: { id: number; edge_type: string }[];
   figures?: Figure[];
@@ -158,6 +160,16 @@ export default function AskPage() {
         <div className="ask-out">
           {!result.sufficient && (
             <div className="ask-nobasis">No sufficient basis in the corpus — answer below is limited.</div>
+          )}
+          {result.sufficient && result.verified === true && (
+            <div className="ask-verified">✓ Verified — every claim checked against the cited clauses.</div>
+          )}
+          {result.sufficient && result.verified === false && (
+            <div className="ask-corrected">
+              Corrected — a fact-check removed {result.issues?.length ?? 0} unsupported claim
+              {(result.issues?.length ?? 0) === 1 ? "" : "s"}:
+              <ul>{(result.issues ?? []).map((s, i) => <li key={i}>{s}</li>)}</ul>
+            </div>
           )}
           <p className="ask-answer">
             <Answer text={result.answer} byId={byId} />

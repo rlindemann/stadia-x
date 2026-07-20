@@ -38,6 +38,39 @@ const SCHEMA = {
   additionalProperties: false,
 } as const;
 
+// Self-verification: a second pass fact-checks the answer against its cited clauses.
+const VERIFY_MODEL = "claude-sonnet-5"; // focused fact-check; faster than the answer model
+const VERIFY_SYSTEM = `You are a strict compliance fact-checker. You are given a question, a
+proposed answer containing [[clause_id]] citations, and the source clauses. Check that every
+factual claim in the answer is directly supported by the clause(s) it cites.
+- If all claims are supported, set grounded=true and return the answer unchanged.
+- If any claim is NOT supported by the provided clauses, set grounded=false, rewrite the
+  answer to remove or correct the unsupported claim(s) (keep only what the clauses support,
+  preserving the [[id]] citations), and list each unsupported claim in "issues".
+Do not add outside information. Return valid JSON.`;
+const VERIFY_SCHEMA = {
+  type: "object",
+  properties: {
+    grounded: { type: "boolean" },
+    answer: { type: "string" },
+    issues: { type: "array", items: { type: "string" } },
+  },
+  required: ["grounded", "answer", "issues"],
+  additionalProperties: false,
+} as const;
+
+async function verify(client: Anthropic, question: string, answer: string, context: string) {
+  const msg = await client.messages.create({
+    model: VERIFY_MODEL,
+    max_tokens: 2048,
+    system: VERIFY_SYSTEM,
+    messages: [{ role: "user", content: `Question: ${question}\n\nProposed answer:\n${answer}\n\nSource clauses:\n\n${context}` }],
+    output_config: { format: { type: "json_schema", schema: VERIFY_SCHEMA } },
+  } as Anthropic.MessageCreateParamsNonStreaming);
+  const t = msg.content.find((b) => b.type === "text");
+  return t ? (JSON.parse(t.text) as { grounded: boolean; answer: string; issues: string[] }) : null;
+}
+
 function contextBlock(hits: SearchHit[]): string {
   return hits
     .map((h) => {
@@ -117,28 +150,40 @@ export async function POST(req: NextRequest) {
           .join("\n\n")
       : "";
 
+    const context = `${contextBlock(hits)}${relatedBlock}${applicabilityBlock}${figureBlock}`;
     const client = new Anthropic();
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 4096,
       thinking: { type: "adaptive" },
       system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: `Question: ${question}\n\nContext clauses:\n\n${contextBlock(hits)}${relatedBlock}${applicabilityBlock}${figureBlock}`,
-        },
-      ],
+      messages: [{ role: "user", content: `Question: ${question}\n\nContext clauses:\n\n${context}` }],
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
     } as Anthropic.MessageCreateParamsNonStreaming);
 
     const text = msg.content.find((b) => b.type === "text");
     const parsed = text ? JSON.parse(text.text) : { sufficient: false, answer: "" };
 
+    // Self-verification: fact-check every claim against the cited clauses; correct or
+    // flag anything unsupported. Falls back to the original answer if the pass errors.
+    let answer: string = parsed.answer;
+    let verified = true;
+    let issues: string[] = [];
+    if (parsed.sufficient && answer) {
+      try {
+        const v = await verify(client, question, answer, context);
+        if (v) { answer = v.answer || answer; verified = v.grounded; issues = v.issues ?? []; }
+      } catch (e) {
+        console.error("verify failed, using unverified answer:", e);
+      }
+    }
+
     // Return seeds + graph-expanded clauses so the client can resolve every [[id]].
     return NextResponse.json({
       sufficient: parsed.sufficient,
-      answer: parsed.answer,
+      answer,
+      verified,
+      issues,
       clauses: [...hits, ...expanded, ...applClauses],
       expanded: expanded.map((e) => ({ id: e.id, edge_type: e.matched_question })),
       figures: figures.map((f) => ({

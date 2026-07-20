@@ -134,9 +134,14 @@ Compliance matrices (the ✓/△/✗ "required per category" tables) are **vecto
 3. **Figures** (`figureSearch`, sim ≥ 0.35) injected as clause data.
 4. **Category applicability** (§13) — if the question names a Stadium Category, the structured `clause_applicability` rows for that category are injected as authoritative context (with their clauses merged in so citations resolve).
 5. **Claude `claude-opus-4-8`**, adaptive thinking, JSON-schema output `{sufficient, answer}`. System prompt: ground every factual sentence in the provided clauses; cite with `[[clause_id]]` markers; flag superseded clauses; **if the clauses don't suffice, set `sufficient:false` and refuse — no invented rules.**
-6. Response returns the answer, the resolvable clauses (seeds + expanded + applicability), and matched figures.
+6. **Self-verification** (§10a) — a second model re-checks every claim against the cited clauses before returning.
+7. Response returns the (verified) answer, `verified`/`issues`, the resolvable clauses (seeds + expanded + applicability), and matched figures.
 
 Honest abstention is a first-class behaviour, not an afterthought — verified by the eval harness (§12).
+
+## 10a. Answer self-verification (the last trust lever)
+
+The answer model is already strictly grounded, but for a compliance tool "usually grounded" isn't enough. `verify()` runs a **second pass** (`claude-sonnet-5`, focused, no thinking) that reads the question, the drafted answer, and the same source clauses, and fact-checks **every claim against its cited clause**. If all supported → `grounded:true`, answer unchanged. If any claim is unsupported → it rewrites the answer to remove/correct it and lists what it stripped in `issues`. Falls back to the original answer if the pass errors. Because the drafter is already grounded, this is a **safety net** (most answers verify clean); the UI shows a "Verified" badge, or a "Corrected — removed N unsupported claims" notice. ~+5s latency; total Ask ~15s, under the 60s cap.
 
 ---
 
@@ -221,7 +226,7 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Conversational rewrite** ○ — In a chat, turn "what about for Category C?" into a full standalone question using the previous turn. (Ask is single-turn today.)
 
 ### 16.3 Answer generation
-- **Self-verification pass** ○ — After the answer, a second LLM pass checks each sentence against the cited sources and removes/flags anything unsupported. Matters most for compliance.
+- **Self-verification pass** ✅ **built** (see §10a) — a second model (`claude-sonnet-5`) fact-checks every claim against its cited clauses and corrects/flags anything unsupported before returning.
 - **Citation faithfulness check** ◑ — We instruct citation in the prompt but never *verify* every claim is actually supported; this makes it programmatic.
 - **Streaming** ○ — Show the answer as it types instead of waiting for the whole thing.
 
@@ -248,7 +253,7 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - ⏸ **Ranking granularity** — investigated, **deprioritised**: the #1 results winning over the "source" clause are valid alternative answers, not wrong (judge hit@1 91% proves it). No real problem.
 
 The retrieval *quality* is largely solved. The remaining gaps are TRUST and GOVERNANCE:
-1. **Answer self-verification** (16.3) — a second pass checks the Ask answer against its sources; closes the last hallucination risk (compliance-critical).
-2. **RAGAS-style Ask eval** (16.4) — faithfulness / context-precision on generated answers (the judge covers retrieval; this covers generation).
-3. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
-4. **The 3 genuine top-3 misses** (4%) — the only real retrieval misses left; worth a look when convenient.
+- ✅ **Answer self-verification** — done (§10a).
+1. **RAGAS-style Ask eval** (16.4) — faithfulness / context-precision on generated answers (the judge covers retrieval; this covers generation).
+2. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+3. **The 3 genuine top-3 misses** (4%) — the only real retrieval misses left; worth a look when convenient.

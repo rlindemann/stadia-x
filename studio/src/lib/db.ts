@@ -192,6 +192,45 @@ export async function rateLimited(session: string, action: string, limit: number
   }
 }
 
+// Alerting: evaluate the recent audit log against thresholds. Pure evaluation — the
+// UI shows what it returns, and the cron route pushes new ones to a webhook.
+export type Alert = { kind: string; message: string; meta: Record<string, unknown> };
+export async function checkAlerts(windowMin = 30): Promise<Alert[]> {
+  const rows = await query<{ action: string; n: number; errors: number; p95: number | null }>(
+    `select action, count(*)::int as n,
+            count(*) filter (where status = 'error')::int as errors,
+            percentile_disc(0.95) within group (order by latency_ms)::int as p95
+     from audit_log
+     where ts > now() - make_interval(mins => $1) and action in ('search','ask')
+     group by action`,
+    [windowMin],
+  );
+  const alerts: Alert[] = [];
+  const total = rows.reduce((a, r) => a + r.n, 0);
+  const errs = rows.reduce((a, r) => a + r.errors, 0);
+  if (total >= 10 && errs / total > 0.25) {
+    alerts.push({ kind: "error_rate", meta: { total, errs, window_min: windowMin },
+      message: `High error rate: ${errs}/${total} (${Math.round((100 * errs) / total)}%) in the last ${windowMin}m` });
+  }
+  for (const r of rows) {
+    const thr = r.action === "ask" ? 45000 : 8000; // ask is inherently slower (2 LLM calls)
+    if (r.p95 != null && r.p95 > thr) {
+      alerts.push({ kind: `latency_${r.action}`, meta: { action: r.action, p95: r.p95, threshold: thr, window_min: windowMin },
+        message: `${r.action} latency high: p95 ${r.p95}ms (> ${thr}ms) in the last ${windowMin}m` });
+    }
+  }
+  return alerts;
+}
+
+// True if an alert of this kind already fired recently (dedup, so cron doesn't spam).
+export async function alertedRecently(kind: string, mins = 30): Promise<boolean> {
+  const rows = await query<{ x: number }>(
+    `select 1 as x from audit_log where action = 'alert' and target = $1 and ts > now() - make_interval(mins => $2) limit 1`,
+    [kind, mins],
+  );
+  return rows.length > 0;
+}
+
 export type SearchFilters = {
   obligation?: string[]; // requirement|recommendation|permission|informative
   status?: string[]; // standards.status, e.g. Current|Superseded

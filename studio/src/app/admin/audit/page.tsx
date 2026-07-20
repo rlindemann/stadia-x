@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auditStats, listAudit } from "@/lib/db";
+import { auditStats, checkAlerts, listAudit } from "@/lib/db";
 
 export const metadata = { title: "Audit log — STADIA-X" };
 export const dynamic = "force-dynamic";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const fmt = (ts: string) => new Date(ts).toISOString().replace("T", " ").slice(0, 19);
 
 export default async function AuditPage() {
-  const [stats, rows] = await Promise.all([auditStats(24), listAudit(150)]);
+  const [stats, rows, alerts] = await Promise.all([auditStats(24), listAudit(150), checkAlerts(30)]);
   const totals = stats.reduce(
     (a, s) => ({ n: a.n + s.n, errors: a.errors + s.errors }),
     { n: 0, errors: 0 },
@@ -29,6 +29,15 @@ export default async function AuditPage() {
           {totals.n} events, {totals.errors} errors.
         </p>
       </div>
+
+      {alerts.length > 0 ? (
+        <div className="au-alerts">
+          <div className="au-alerts-lbl">⚠ {alerts.length} active alert{alerts.length === 1 ? "" : "s"} (last 30m)</div>
+          {alerts.map((a) => <div className="au-alert" key={a.kind}>{a.message}</div>)}
+        </div>
+      ) : (
+        <div className="au-ok">✓ No alerts — error rate and latency within thresholds (last 30m).</div>
+      )}
 
       <div className="au-stats">
         {stats.length === 0 ? (

@@ -249,8 +249,8 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Access control (permission-filtered retrieval)** ○ — needs identity first; deferred pending an auth-provider decision + OAuth creds.
 - **Rate limiting** ✅ **built** — per-session sliding window (search 40/min, ask 12/min), enforced by counting recent `audit_log` rows (no extra table); returns `429` over the limit. Fails open on a DB error.
 - **Caching** ✅ **built** (§18) — a shared Postgres `cache` table: query **embeddings** (30-day TTL, corpus-independent), **search results** (10 min), and **Ask answers** (30 min). Cache hit ≈ **70ms** vs a cold ~1-2s+ pipeline; cleared on publish/unpublish/delete.
+- **Monitoring / alerting** ✅ **built** (§18) — a scheduled check evaluates the audit log for error-rate and p95-latency spikes, surfaces active alerts on `/admin/audit`, and pushes new ones to a webhook.
 - **PII redaction · multi-tenancy** ○ — N/A for the in-house single-tenant deployment.
-- **Monitoring / alerting** ○ — `/admin/audit` shows the metrics, but nothing pages you when errors/latency spike.
 - **Incremental / real-time indexing** ◑ — today a standard reloads in a batch; enterprise wants live updates on change.
 
 ### 16.6 Priority order (highest impact first)
@@ -288,3 +288,4 @@ This is the accountability + monitoring substrate a security review asks for. Id
   - **Ask answers** — `ask:<q>:<hop>:<filters>`, 30-min TTL (only `sufficient` answers cached).
   - Result caches are **cleared on publish/unpublish/delete** (the visible corpus changed); embeddings are not (corpus-independent). Measured: cache hit ≈ 70ms vs a full pipeline.
 - **Rate limiting** — `rateLimited(session, action, limit, windowSec)` counts recent `audit_log` rows for the session+action; over the limit returns `429`. Search 40/min, Ask 12/min. No extra table; fails open on error so a DB blip can't lock users out.
+- **Alerting** — `checkAlerts()` evaluates the last 30m of the audit log: **error rate** > 25% (min 10 events) and **p95 latency** over threshold (ask 45s, search 8s). Two delivery paths, no external setup required: the `/admin/audit` page shows a live banner of active alerts (or "no alerts"), and `/api/cron/alerts` (Vercel Cron every 15m, protected by `CRON_SECRET`) fires each **new** alert (deduped 30m) to `ALERT_WEBHOOK_URL` if configured and records it. Works with zero config; add the webhook to get pushed.

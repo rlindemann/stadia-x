@@ -467,6 +467,10 @@ a.cat-ref:hover { border-bottom: 1px solid var(--accent); }
 .adm-actions .adm-del:hover { color: var(--shall); }
 
 /* ---------------- Governance: audit log ---------------- */
+.au-alerts { border: 1px solid var(--shall); border-left: 3px solid var(--shall); background: color-mix(in srgb, var(--shall) 8%, transparent); border-radius: 6px; padding: 12px 16px; margin: 0 0 20px; }
+.au-alerts-lbl { font-family: var(--mono); font-size: 12px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--shall); margin-bottom: 8px; }
+.au-alert { font-size: 14px; color: var(--ink); padding: 3px 0; }
+.au-ok { font-family: var(--mono); font-size: 12.5px; color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); background: var(--accent-wash); border-radius: 6px; padding: 10px 14px; margin: 0 0 20px; }
 .au-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin: 6px 0 26px; }
 .au-stat { border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 6px; padding: 12px 14px; background: var(--panel); }
 .au-stat-action { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); }

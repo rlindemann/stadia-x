@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, rerankHits, type SearchFilters, type SearchHit } from "@/lib/db";
+import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, logAudit, rerankHits, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 const EDGE_LABEL: Record<string, string> = {
@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
   if (!question) return NextResponse.json({ error: "question required" }, { status: 400 });
   const filters: SearchFilters = (body.filters as SearchFilters) ?? {};
   const hop = body.hop !== false; // GraphRAG expansion on by default
+  const session = req.cookies.get("sx_session")?.value ?? null;
+  const t0 = Date.now();
 
   try {
     const { lexQuery } = expandLexicalQuery(question);
@@ -178,6 +180,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await logAudit({
+      session_id: session, action: "ask", target: question,
+      status: parsed.sufficient ? "ok" : "insufficient", latency_ms: Date.now() - t0,
+      meta: { seeds: hits.length, expanded: expanded.length, category, verified, issues: issues.length },
+    });
+
     // Return seeds + graph-expanded clauses so the client can resolve every [[id]].
     return NextResponse.json({
       sufficient: parsed.sufficient,
@@ -197,6 +205,8 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (e) {
+    await logAudit({ session_id: session, action: "ask", target: question, status: "error",
+      latency_ms: Date.now() - t0, meta: { error: String((e as Error).message ?? e) } });
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });
   }
 }

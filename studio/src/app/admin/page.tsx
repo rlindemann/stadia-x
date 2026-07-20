@@ -64,6 +64,7 @@ export default function AdminPage() {
           Upload a PDF to add a standard. It is registered as pending review and stays out of public
           search until you publish it. {ingest ? "Extraction runs on this server." : "Automatic extraction is off on this server (set LOCAL_INGEST=1 on a host with the Python pipeline)."}
         </p>
+        <div className="src"><a href="/admin/audit">Audit log &amp; activity &rarr;</a></div>
       </div>
 
       <form className="adm-form" onSubmit={onUpload}>

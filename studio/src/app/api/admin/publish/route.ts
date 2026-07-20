@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteStandard, setReviewStatus } from "@/lib/db";
+import { deleteStandard, logAudit, setReviewStatus } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +10,15 @@ export async function POST(req: NextRequest) {
   const id = typeof body.id === "string" ? body.id : "";
   const action = body.action as "publish" | "unpublish" | "delete";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const session = req.cookies.get("sx_session")?.value ?? null;
 
   try {
     if (action === "delete") await deleteStandard(id);
     else await setReviewStatus(id, action === "publish" ? "published" : "pending");
+    await logAudit({ session_id: session, action, target: id, status: "ok" });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    await logAudit({ session_id: session, action, target: id, status: "error", meta: { error: String((e as Error).message ?? e) } });
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });
   }
 }

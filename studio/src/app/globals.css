@@ -466,6 +466,25 @@ a.cat-ref:hover { border-bottom: 1px solid var(--accent); }
 .adm-actions button:disabled { opacity: .35; cursor: default; }
 .adm-actions .adm-del:hover { color: var(--shall); }
 
+/* ---------------- Governance: audit log ---------------- */
+.au-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin: 6px 0 26px; }
+.au-stat { border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 6px; padding: 12px 14px; background: var(--panel); }
+.au-stat-action { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); }
+.au-stat-n { font-size: 28px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; margin: 2px 0 8px; }
+.au-stat-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; margin: 0; }
+.au-stat-meta > div { display: flex; justify-content: space-between; }
+.au-stat-meta dt { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.au-stat-meta dd { margin: 0; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.au-table td { font-size: 13px; vertical-align: top; }
+.au-target { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.au-tag { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-2); color: var(--muted); }
+.au-tag.au-search { color: var(--accent-2); }
+.au-tag.au-ask { color: var(--should); }
+.au-tag.au-publish, .au-tag.au-unpublish, .au-tag.au-delete { color: var(--shall); }
+.au-status { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.au-err { color: var(--shall); }
+.au-warn { color: var(--should); }
+
 /* ---------------- Save-to-collection button + popover ---------------- */
 .save { position: relative; display: inline-block; }
 .save-btn { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); background: transparent; border: 1px solid var(--line-2); padding: 3px 9px; cursor: pointer; transition: color .12s, border-color .12s; }

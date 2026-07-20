@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedQuery, figureSearch, hybridSearch, rerankHits, type SearchFilters } from "@/lib/db";
+import { embedQuery, figureSearch, hybridSearch, logAudit, rerankHits, type SearchFilters } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ async function run(query: string, limit: number, filters: SearchFilters) {
   // Surface matching tables/figures alongside clause text, honouring the standard filter.
   let figures = figuresRaw.filter((f) => f.sim >= FIG_MIN);
   if (filters.standardId?.length) figures = figures.filter((f) => filters.standardId!.includes(f.standard_id));
-  return NextResponse.json({ query, expansions, count: results.length, results, figures });
+  return { query, expansions, count: results.length, results, figures };
 }
 
 function csv(v: string | null): string[] | undefined {
@@ -30,23 +30,33 @@ function csv(v: string | null): string[] | undefined {
   return list && list.length ? list : undefined;
 }
 
+async function handle(req: NextRequest, query: string, limit: number, filters: SearchFilters) {
+  const session = req.cookies.get("sx_session")?.value ?? null;
+  const t0 = Date.now();
+  try {
+    const data = await run(query, limit, filters);
+    await logAudit({ session_id: session, action: "search", target: query, status: "ok",
+      latency_ms: Date.now() - t0, meta: { results: data.count, figures: data.figures.length, filters } });
+    return NextResponse.json(data);
+  } catch (e) {
+    await logAudit({ session_id: session, action: "search", target: query, status: "error",
+      latency_ms: Date.now() - t0, meta: { error: String((e as Error).message ?? e) } });
+    return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });
+  }
+}
+
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const query = p.get("q")?.trim();
   const limit = Number(p.get("limit")) || 20;
   if (!query) return NextResponse.json({ error: "q required" }, { status: 400 });
-  const filters: SearchFilters = {
+  return handle(req, query, limit, {
     obligation: csv(p.get("obligation")),
     status: csv(p.get("status")),
     publisher: csv(p.get("publisher")),
     standardId: csv(p.get("standard")),
     currentOnly: p.get("current") === "1",
-  };
-  try {
-    return await run(query, limit, filters);
-  } catch (e) {
-    return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });
-  }
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -54,9 +64,5 @@ export async function POST(req: NextRequest) {
   const query = typeof body.query === "string" ? body.query.trim() : "";
   const limit = Number(body.limit) || 20;
   if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
-  try {
-    return await run(query, limit, (body.filters as SearchFilters) ?? {});
-  } catch (e) {
-    return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 });
-  }
+  return handle(req, query, limit, (body.filters as SearchFilters) ?? {});
 }

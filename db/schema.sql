@@ -113,6 +113,23 @@ create table if not exists clause_applicability (
   meta        jsonb not null default '{}'
 );
 
+-- Governance: audit log + request telemetry. One row per significant action (search,
+-- ask, publish, upload, ...), with an anonymous per-browser session id (becomes a real
+-- user id once auth lands), latency, status, and structured meta (result counts, filters,
+-- token usage). This is the accountability + observability substrate.
+create table if not exists audit_log (
+  id         bigserial primary key,
+  ts         timestamptz not null default now(),
+  session_id text,             -- anonymous per-browser id (cookie), later a real user id
+  action     text not null,    -- search | ask | publish | unpublish | upload | ...
+  target     text,             -- the query, standard_id, clause id, ...
+  status     text,             -- ok | error | insufficient | ...
+  latency_ms int,
+  meta       jsonb not null default '{}'
+);
+create index if not exists audit_log_ts_idx on audit_log (ts desc);
+create index if not exists audit_log_action_idx on audit_log (action);
+
 -- Indexes: HNSW cosine for semantic, GIN for full-text, plain for facets.
 create index if not exists clauses_embedding_idx on clauses using hnsw (embedding vector_cosine_ops);
 create index if not exists clause_questions_embedding_idx on clause_questions using hnsw (embedding vector_cosine_ops);

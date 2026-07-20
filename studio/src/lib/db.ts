@@ -113,6 +113,47 @@ export type SearchHit = {
   context: string | null; // LLM-written situating sentence (contextual retrieval)
 };
 
+// ---- Governance: audit log + telemetry ----
+export function logAudit(e: {
+  session_id?: string | null; action: string; target?: string | null;
+  status?: string | null; latency_ms?: number | null; meta?: Record<string, unknown>;
+}): Promise<void> {
+  return query(
+    `insert into audit_log (session_id, action, target, status, latency_ms, meta) values ($1,$2,$3,$4,$5,$6)`,
+    [e.session_id ?? null, e.action, e.target ?? null, e.status ?? null, e.latency_ms ?? null, JSON.stringify(e.meta ?? {})],
+  ).then(() => undefined).catch(() => undefined); // logging must never break a request
+}
+
+export type AuditRow = {
+  id: number; ts: string; session_id: string | null; action: string;
+  target: string | null; status: string | null; latency_ms: number | null; meta: Record<string, unknown>;
+};
+export function listAudit(limit = 100, action?: string): Promise<AuditRow[]> {
+  const params: unknown[] = [];
+  let where = "";
+  if (action) { params.push(action); where = `where action = $${params.length}`; }
+  params.push(limit);
+  return query<AuditRow>(
+    `select id, ts, session_id, action, target, status, latency_ms, meta
+     from audit_log ${where} order by ts desc limit $${params.length}`,
+    params,
+  );
+}
+
+export type AuditStat = { action: string; n: number; errors: number; sessions: number; p50_ms: number | null; p95_ms: number | null };
+export function auditStats(hours = 24): Promise<AuditStat[]> {
+  return query<AuditStat>(
+    `select action, count(*)::int as n,
+            count(*) filter (where status = 'error')::int as errors,
+            count(distinct session_id)::int as sessions,
+            percentile_disc(0.5) within group (order by latency_ms)::int as p50_ms,
+            percentile_disc(0.95) within group (order by latency_ms)::int as p95_ms
+     from audit_log where ts > now() - make_interval(hours => $1)
+     group by action order by n desc`,
+    [hours],
+  );
+}
+
 export type SearchFilters = {
   obligation?: string[]; // requirement|recommendation|permission|informative
   status?: string[]; // standards.status, e.g. Current|Superseded

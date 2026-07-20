@@ -243,12 +243,13 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Feedback loop** ○ — Thumbs up/down on answers → use that signal to improve ranking over time.
 
 ### 16.5 Governance & ops (the layer that actually makes it "enterprise")
-- **Access control (permission-filtered retrieval)** ○ — Only return documents the current user is allowed to see, filtered at query time. Non-negotiable for a real enterprise deployment.
-- **Audit logging** ○ — Record who searched/asked what, when, and what they saw.
-- **PII redaction · multi-tenancy · rate limiting** ○ — Data-isolation and abuse-prevention basics.
-- **Observability / tracing** ○ — Log every query → retrieval → answer with latency and cost, to debug and monitor.
-- **Caching · monitoring / alerting** ○ — Query/embedding caches; alerts when quality or latency regress.
-- **Incremental / real-time indexing** ◑ — Today a standard reloads in a batch; enterprise wants live updates on change.
+- **Audit logging** ✅ **built** (§17) — every search / ask / publish / unpublish / delete is recorded in `audit_log` with an anonymous session id, target, status, latency, and structured meta.
+- **Observability / tracing** ✅ **built** (§17) — the same log is the telemetry: the `/admin/audit` view shows per-action volume, distinct sessions, error counts, and p50/p95 latency (last 24h).
+- **Session attribution** ✅ **built** — a `proxy.ts` sets an anonymous per-browser `sx_session` cookie so actions are attributable before auth exists (becomes the user id once auth lands).
+- **Access control (permission-filtered retrieval)** ○ — needs identity first; deferred pending an auth-provider decision + OAuth creds.
+- **PII redaction · multi-tenancy · rate limiting** ○ — data-isolation / abuse-prevention (multi-tenancy N/A for the in-house deployment).
+- **Caching · monitoring / alerting** ○ — query/embedding caches; alerts when quality or latency regress.
+- **Incremental / real-time indexing** ◑ — today a standard reloads in a batch; enterprise wants live updates on change.
 
 ### 16.6 Priority order (highest impact first)
 - ✅ **Cross-encoder reranking** — done (§4a).
@@ -260,5 +261,17 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 The retrieval *quality* is largely solved. The remaining gaps are TRUST and GOVERNANCE:
 - ✅ **Answer self-verification** — done (§10a).
 1. **RAGAS-style Ask eval** (16.4) — faithfulness / context-precision on generated answers (the judge covers retrieval; this covers generation).
-2. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+2. **Governance** (16.5) — ✅ audit logging + observability + session attribution done (§17). Remaining: **identity/SSO → per-user access control** (blocked on an auth-provider decision + OAuth creds).
 3. **The 3 genuine top-3 misses** (4%) — the only real retrieval misses left; worth a look when convenient.
+
+---
+
+## 17. Governance — audit log & observability
+
+`audit_log` (one row per significant action) + a `proxy.ts` that assigns an anonymous per-browser `sx_session` cookie, so every action is attributable before real auth exists.
+
+- **Logged** (via `logAudit`, non-blocking, never breaks a request): `search`, `ask`, `publish`, `unpublish`, `delete` — with session, target (the query / standard id), status (`ok` / `error` / `insufficient`), `latency_ms`, and `meta` (result counts, filters, seeds, category, verified flag, errors).
+- **Observability:** `/admin/audit` shows per-action volume, distinct sessions, error count, and **p50/p95 latency** over the last 24h, plus the recent event log.
+- **When auth lands:** `session_id` becomes the real user id, unlocking per-user audit and permission-filtered retrieval — no schema change to the log.
+
+This is the accountability + monitoring substrate a security review asks for. Identity, roles, and permission-filtered retrieval sit on top and are deferred pending an auth-provider decision.

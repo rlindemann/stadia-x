@@ -13,8 +13,12 @@
 
 ## Working documentation
 
-All documents for planning and executing this project will be in the docs/ directory.
-Please review the docs/PLAN.md document before proceeding.
+All documents for this project are in the docs/ directory. The live ones:
+- docs/BUILD.md - project state / resume-here
+- docs/retrieval-spec.md - the complete search/retrieval specification (canonical)
+- docs/extraction-build-spec.md - the cross-project four-extractor substrate (optional)
+- docs/ROADMAP.md - feature backlog
+Historical planning blueprints are in docs/archive/.
 
 ## YOLO MODE
 

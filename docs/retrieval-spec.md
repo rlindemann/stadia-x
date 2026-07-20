@@ -29,11 +29,19 @@ Everything is **transparent**: each result carries which signals fired and its r
 ## 2. Embeddings & indexes
 
 - **Model:** Voyage **`voyage-3.5`**, **1024 dimensions**. `input_type=document` at index time, `input_type=query` at search time (Voyage's asymmetric mode). Query embedding is a live API call from the serverless function — no local model.
-- **Clause vectors:** `clauses.embedding vector(1024)`, index **HNSW cosine** (`vector_cosine_ops`). One embedding per clause (the verbatim text).
+- **Clause vectors:** `clauses.embedding vector(1024)`, index **HNSW cosine** (`vector_cosine_ops`). One embedding per clause — of **(context + verbatim_text)**, see §2a.
 - **Anticipated-question vectors:** `clause_questions.embedding vector(1024)`, HNSW cosine. One row per question (see §3).
-- **Full-text:** `clauses.tsv` — a **generated** `tsvector` column (`to_tsvector('english', verbatim_text)`), **GIN** indexed. Queried with `websearch_to_tsquery` and scored with `ts_rank`.
+- **Full-text:** `clauses.tsv` — a **generated** `tsvector` column over **`context || verbatim_text`** (§2a), **GIN** indexed. Queried with `websearch_to_tsquery`, scored with `ts_rank`.
 
 > Vector index is **HNSW**, not a "metric tree" (KD/ball/VP/cover tree). Metric trees collapse under the curse of dimensionality at 1024-dim — HNSW (a navigable small-world graph) is the correct modern choice.
+
+## 2a. Contextual retrieval (Anthropic technique)
+
+A clause embedded on its own is often ambiguous ("Minimum three (3)"). `ingest/contextualize.py` has an LLM (Haiku) write a one-sentence context situating each clause in its document/section, stores it in `clauses.context`, and:
+- **Contextual embeddings** — the clause is embedded as `context + verbatim_text`, so the vector carries what section/topic it belongs to.
+- **Contextual BM25** — the `tsv` full-text column is generated over `context || verbatim_text`, so keyword search benefits too.
+
+Query stays raw (asymmetric: document side gets context, query side doesn't). Anthropic reports ~35-49% fewer failed retrievals from this.
 
 ---
 
@@ -196,7 +204,7 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 
 ### 16.1 Retrieval quality
 - **Cross-encoder reranking** ✅ **built** (see §4a) — a second stage that reads the query and each candidate together (Voyage `rerank-2.5`) and reorders the first-stage pool. Lifted hit@1 60%→70%, MRR 0.800→0.833 on the eval set.
-- **Contextual Retrieval** (Anthropic) ○ — Before embedding a chunk, an LLM writes a one-line context ("from the 2026 AFC regs, dressing-room section") and prepends it, so the chunk is self-describing and gets found even when it's ambiguous alone. Anthropic reports ~35-49% fewer failed retrievals.
+- **Contextual Retrieval** (Anthropic) ✅ **built** (see §2a) — LLM-written context per clause, folded into both the embedding and the tsvector.
 - **Parent-document / small-to-big** ○ — Match on small precise chunks but return the larger surrounding section for context. Precision of small + richness of big.
 - **Field boosting** ○ — Weight a hit in the clause number/heading higher than a hit buried in body text.
 - **MMR (Maximal Marginal Relevance)** ○ — Stop returning five near-identical results; pick ones that are relevant **and** diverse.
@@ -231,8 +239,8 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 
 ### 16.6 Priority order (highest impact first)
 - ✅ **Cross-encoder reranking** — done (§4a).
-1. **Contextual Retrieval** (16.1) — biggest recall gain.
-2. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
-3. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
-4. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
-5. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+- ✅ **Contextual Retrieval** — done (§2a).
+1. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
+2. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
+3. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
+4. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.

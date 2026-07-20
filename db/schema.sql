@@ -32,8 +32,10 @@ create table if not exists clauses (
   verbatim_text   text not null,
   defined_terms   text[] not null default '{}',
   uri             text,
-  embedding       vector(1024),               -- clause-text embedding
-  tsv             tsvector generated always as (to_tsvector('english', verbatim_text)) stored,
+  context         text,                       -- LLM-written situating sentence (contextual retrieval)
+  embedding       vector(1024),               -- embedding of (context + verbatim_text)
+  -- contextual BM25: the situating context is folded into the full-text index too
+  tsv             tsvector generated always as (to_tsvector('english', coalesce(context,'') || ' ' || verbatim_text)) stored,
   meta            jsonb not null default '{}'
 );
 

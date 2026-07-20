@@ -179,3 +179,52 @@ Only editions that publish per-category matrices get this (currently 2026). The 
 - `studio/src/app/categories/` + `api/applicability/` — the by-category requirements view.
 - `studio/eval/` — `pairs.json` (approved), `competency-questions.md`, `run.mjs` (scorer).
 - `db/schema.sql` — `clauses`, `clause_questions`, `clause_edges`, `clause_figures`, `clause_applicability`, all indexes.
+
+---
+
+## 16. Roadmap to state-of-the-art (what is NOT here yet)
+
+Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class retrieval), **Trust** (grounded, verified, measurably accurate), **Governance** (access control, audit, compliance), **Ops** (observability, caching, feedback, SLAs). Sections 1-13 are a strong core of Quality + Trust. The items below are **not built** — the advanced-quality, eval-at-scale, governance, and ops layers. Each: plain-English *what it is*, then status (✅ have · ◑ partial · ○ missing).
+
+### 16.1 Retrieval quality
+- **Cross-encoder reranking** ○ — Today's vector search is a *bi-encoder*: the query and each document are turned into vectors **separately** and compared — fast, but it never reads them together. A **cross-encoder** is a smarter model that reads the query and one candidate **crossed together in the same pass** and scores the true match. Too slow for the whole corpus, so you run first-stage search to get ~50 candidates, then rerank just those. Biggest single quality jump for the least effort. Tools: Cohere Rerank, bge-reranker, Voyage rerank.
+- **Contextual Retrieval** (Anthropic) ○ — Before embedding a chunk, an LLM writes a one-line context ("from the 2026 AFC regs, dressing-room section") and prepends it, so the chunk is self-describing and gets found even when it's ambiguous alone. Anthropic reports ~35-49% fewer failed retrievals.
+- **Parent-document / small-to-big** ○ — Match on small precise chunks but return the larger surrounding section for context. Precision of small + richness of big.
+- **Field boosting** ○ — Weight a hit in the clause number/heading higher than a hit buried in body text.
+- **MMR (Maximal Marginal Relevance)** ○ — Stop returning five near-identical results; pick ones that are relevant **and** diverse.
+- **Multi-vector / late interaction (ColBERT)** ○ — One vector per *word* instead of per chunk, for finer matching. Powerful but heavier. (Advanced.)
+- **True BM25** ◑ — We use Postgres `ts_rank`; ParadeDB/`pg_search` gives real in-database BM25 (better keyword scoring).
+
+### 16.2 Query understanding
+- **Query rewriting / multi-query** ○ — An LLM rewrites your question into a cleaner search query, or generates several variants, searches all, and merges — catches cases where your words don't match the document's words.
+- **HyDE (Hypothetical Document Embeddings)** ○ — Instead of searching with the question, the LLM first drafts a fake ideal answer and searches with **that** (a hypothetical answer resembles the real document more than the question does). We do the *reverse* (index questions per clause, §3) — related but not the same.
+- **Query decomposition** ○ — Split a complex multi-part question into sub-questions, retrieve for each, combine.
+- **Spelling / typo tolerance** ○ — Handle misspelled queries.
+- **Conversational rewrite** ○ — In a chat, turn "what about for Category C?" into a full standalone question using the previous turn. (Ask is single-turn today.)
+
+### 16.3 Answer generation
+- **Self-verification pass** ○ — After the answer, a second LLM pass checks each sentence against the cited sources and removes/flags anything unsupported. Matters most for compliance.
+- **Citation faithfulness check** ◑ — We instruct citation in the prompt but never *verify* every claim is actually supported; this makes it programmatic.
+- **Streaming** ○ — Show the answer as it types instead of waiting for the whole thing.
+
+### 16.4 Evaluation & trust
+- **Eval at scale** ◑ — We have 11 approved pairs; real eval means 100s of labeled queries with standard metrics (NDCG, recall@k, MRR).
+- **RAGAS / automated RAG metrics** ○ — A framework that auto-scores faithfulness, context-precision, and answer-relevance with an LLM — no manual labeling.
+- **LLM-as-judge** ○ — Use a strong model to grade answer quality automatically at scale.
+- **Feedback loop** ○ — Thumbs up/down on answers → use that signal to improve ranking over time.
+
+### 16.5 Governance & ops (the layer that actually makes it "enterprise")
+- **Access control (permission-filtered retrieval)** ○ — Only return documents the current user is allowed to see, filtered at query time. Non-negotiable for a real enterprise deployment.
+- **Audit logging** ○ — Record who searched/asked what, when, and what they saw.
+- **PII redaction · multi-tenancy · rate limiting** ○ — Data-isolation and abuse-prevention basics.
+- **Observability / tracing** ○ — Log every query → retrieval → answer with latency and cost, to debug and monitor.
+- **Caching · monitoring / alerting** ○ — Query/embedding caches; alerts when quality or latency regress.
+- **Incremental / real-time indexing** ◑ — Today a standard reloads in a batch; enterprise wants live updates on change.
+
+### 16.6 Priority order (highest impact first)
+1. **Cross-encoder reranking** (16.1) — biggest quality gain, least effort.
+2. **Contextual Retrieval** (16.1) — biggest recall gain.
+3. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
+4. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
+5. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
+6. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.

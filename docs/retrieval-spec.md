@@ -114,8 +114,9 @@ Compliance matrices (the ✓/△/✗ "required per category" tables) are **vecto
 1. Hybrid search, **TOP_K = 8** seeds.
 2. **GraphRAG hop** (§11): pull graph neighbours of the seeds (default on).
 3. **Figures** (`figureSearch`, sim ≥ 0.35) injected as clause data.
-4. **Claude `claude-opus-4-8`**, adaptive thinking, JSON-schema output `{sufficient, answer}`. System prompt: ground every factual sentence in the provided clauses; cite with `[[clause_id]]` markers; flag superseded clauses; **if the clauses don't suffice, set `sufficient:false` and refuse — no invented rules.**
-5. Response returns the answer, the resolvable clauses (seeds + expanded), and matched figures.
+4. **Category applicability** (§13) — if the question names a Stadium Category, the structured `clause_applicability` rows for that category are injected as authoritative context (with their clauses merged in so citations resolve).
+5. **Claude `claude-opus-4-8`**, adaptive thinking, JSON-schema output `{sufficient, answer}`. System prompt: ground every factual sentence in the provided clauses; cite with `[[clause_id]]` markers; flag superseded clauses; **if the clauses don't suffice, set `sufficient:false` and refuse — no invented rules.**
+6. Response returns the answer, the resolvable clauses (seeds + expanded + applicability), and matched figures.
 
 Honest abstention is a first-class behaviour, not an afterthought — verified by the eval harness (§12).
 
@@ -143,9 +144,15 @@ One-liner: anticipated = signpost (findability); approved Q-A = exam question wi
 
 ---
 
-## 13. The APPLIES_TO gap (modeling, not retrieval)
+## 13. Category applicability — APPLIES_TO (built)
 
-Retrieval can't fix a modeling gap. The ✓/△/✗ matrices carry the real `APPLIES_TO(clause → Stadium Category A-E)` structure with a modality (mandatory / best-practice / non-applicable), but it lives only as **free text** in `clause_figures.transcription`. So "what must a Category B stadium comply with?" is **unanswerable by query**. Fix = extract those matrices as **edges, not prose**. A competency question ("everything that applies to X") is the signal you're missing this. Highest-leverage next build.
+The ✓/△/✗ "required per Stadium Category" matrices carry `APPLIES_TO(requirement → Category A-E)` with a modality (mandatory / best-practice / non-applicable) and a per-category value. Previously that lived only as free text in `clause_figures.transcription`, so "what must a Category B stadium comply with?" was unanswerable by query. **Now extracted as structure** (`ingest/applies_to.py` LLM-parses each matrix):
+
+- **`clause_applicability`** table — one row per (requirement × category) cell: `req_ref`, `requirement`, `category`, `value` (raw, e.g. "4" / "Min. 6" / "mandatory"), `modality`, linked to the clause. 285 cells / 53 requirements across Categories A-E (2026 edition).
+- **`/categories` page** (+ `/api/applicability`) — pick a standard + category → the mandatory and best-practice requirements with per-category values, each linking to its clause.
+- **Wired into Ask** (§10) — a question naming a category ("Category B", "Cat E") injects the applicability rows as authoritative context, so Ask answers with the exact number and modality and cites the clause.
+
+Only editions that publish per-category matrices get this (currently 2026). The general lesson stands: **matrix/table payloads carry the real APPLIES_TO structure — extract it as rows/edges, not prose.** A competency question ("everything that applies to X") is the signal you need it.
 
 ---
 
@@ -168,5 +175,7 @@ Retrieval can't fix a modeling gap. The ✓/△/✗ matrices carry the real `APP
 - `studio/src/components/search-view.tsx` — why-it-matched chips, highlighting, figure cards.
 - `ingest/extract.py` — clauses + the 3-5 anticipated questions.
 - `ingest/build_graph.py` — `clause_edges`. `ingest/figures.py` — multimodal tables/figures.
+- `ingest/applies_to.py` — parses compliance matrices into `clause_applicability` (§13).
+- `studio/src/app/categories/` + `api/applicability/` — the by-category requirements view.
 - `studio/eval/` — `pairs.json` (approved), `competency-questions.md`, `run.mjs` (scorer).
-- `db/schema.sql` — `clauses`, `clause_questions`, `clause_edges`, `clause_figures`, all indexes.
+- `db/schema.sql` — `clauses`, `clause_questions`, `clause_edges`, `clause_figures`, `clause_applicability`, all indexes.

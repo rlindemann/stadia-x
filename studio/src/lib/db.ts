@@ -37,6 +37,42 @@ export async function embedQuery(text: string): Promise<number[]> {
   return data.data[0].embedding as number[];
 }
 
+const RERANK_MODEL = "rerank-2.5";
+
+// Cross-encoder reranking (second stage). The bi-encoder hybrid search fetches a
+// pool of candidates fast; this re-reads the query against each candidate TOGETHER
+// with a cross-encoder and reorders by true relevance. Keeps the current-edition
+// preference by nudging superseded clauses down. Falls back to the first-stage order
+// if the rerank API is unavailable, so search never breaks on a rerank hiccup.
+export async function rerankHits(query: string, hits: SearchHit[]): Promise<SearchHit[]> {
+  if (hits.length <= 1) return hits;
+  try {
+    const documents = hits.map((h) =>
+      `${h.heading_trail ? h.heading_trail + " — " : ""}${h.verbatim_text}`.slice(0, 1800),
+    );
+    const res = await fetch("https://api.voyageai.com/v1/rerank", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.VOYAGE_API_KEY}`,
+      },
+      body: JSON.stringify({ query, documents, model: RERANK_MODEL }),
+    });
+    if (!res.ok) throw new Error(`Voyage rerank ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const ranked = (data.data as { index: number; relevance_score: number }[]).map((r) => ({
+      ...hits[r.index],
+      rerank_score: r.relevance_score,
+    }));
+    const w = (h: SearchHit) => (h.rerank_score ?? 0) * (h.standard_status === "Superseded" ? 0.6 : 1);
+    ranked.sort((a, b) => w(b) - w(a));
+    return ranked;
+  } catch (e) {
+    console.error("rerank failed, using first-stage order:", e);
+    return hits;
+  }
+}
+
 export type SearchHit = {
   id: number;
   standard_id: string;
@@ -61,6 +97,7 @@ export type SearchHit = {
   q_sim: number | null; // cosine similarity to best matching question (0-1)
   lex_score: number; // full-text ts_rank (0 if no lexical match)
   matched_question: string | null;
+  rerank_score?: number; // cross-encoder relevance (0-1), set by rerankHits
 };
 
 export type SearchFilters = {

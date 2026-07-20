@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, type SearchFilters, type SearchHit } from "@/lib/db";
+import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, rerankHits, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 const EDGE_LABEL: Record<string, string> = {
@@ -58,7 +58,10 @@ export async function POST(req: NextRequest) {
   try {
     const { lexQuery } = expandLexicalQuery(question);
     const embedding = await embedQuery(question);
-    const hits = await hybridSearch(lexQuery, embedding, TOP_K, filters);
+    // Pull a wider pool, then cross-encoder rerank down to the TOP_K seeds so the
+    // answer is grounded in the most relevant clauses, not just the fusion order.
+    const pool = await hybridSearch(lexQuery, embedding, 24, filters);
+    const hits = (await rerankHits(question, pool)).slice(0, TOP_K);
 
     if (hits.length === 0) {
       return NextResponse.json({

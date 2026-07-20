@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedQuery, figureSearch, hybridSearch, type SearchFilters } from "@/lib/db";
+import { embedQuery, figureSearch, hybridSearch, rerankHits, type SearchFilters } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const FIG_MIN = 0.4; // only surface tables/figures that clearly relate to the query
+const CANDIDATES = 40; // first-stage pool handed to the cross-encoder reranker
 
 async function run(query: string, limit: number, filters: SearchFilters) {
   // Embed the natural-language query; expand only the lexical side with synonyms
   // so acronym/synonym recall improves without diluting the semantic vector.
   const { lexQuery, expansions } = expandLexicalQuery(query);
   const embedding = await embedQuery(query);
-  const [results, figuresRaw] = await Promise.all([
-    hybridSearch(lexQuery, embedding, Math.min(limit, 50), filters),
+  const [fused, figuresRaw] = await Promise.all([
+    hybridSearch(lexQuery, embedding, CANDIDATES, filters),
     figureSearch(embedding, 6),
   ]);
+  // Second stage: cross-encoder rerank the pool, then keep the top `limit`.
+  const results = (await rerankHits(query, fused)).slice(0, Math.min(limit, 50));
   // Surface matching tables/figures alongside clause text, honouring the standard filter.
   let figures = figuresRaw.filter((f) => f.sim >= FIG_MIN);
   if (filters.standardId?.length) figures = figures.filter((f) => filters.standardId!.includes(f.standard_id));

@@ -65,9 +65,17 @@ score = 1/(60+dense_rnk) + 1/(60+qdense_rnk) + 1/(60+lex_rnk)     -- missing sig
 ```
 RRF is robust because it needs no score normalization across incomparable scales (cosine vs ts_rank) — it fuses **ranks**, not scores. A clause hit by all three signals ranks highest; a strong hit in any one still surfaces.
 
+This is the **first stage** — it produces a candidate pool of ~40 (Search) / ~24 (Ask), which the cross-encoder reranker (§4a) then reorders.
+
 ---
 
-## 5. Ranking levers (re-rank on top of the fused score)
+## 4a. Cross-encoder reranking (second stage)
+
+The hybrid stage is a **bi-encoder**: query and clause are embedded *separately*, so nothing ever reads them together. `rerankHits` (`db.ts`) adds a second stage — a **cross-encoder** (Voyage `rerank-2.5`) that reads the query and each candidate **together** and scores the true match, then reorders the pool; Search keeps the top `limit`, Ask keeps the top 8 seeds. Too slow for the whole corpus, so it only runs on the ~40/~24 first-stage pool. Superseded clauses are nudged ×0.6 on the rerank score to keep the current-edition preference. **Falls back to the first-stage order** if the rerank API errors, so search never breaks. Measured lift on the eval set: hit@1 60%→70%, MRR 0.800→0.833.
+
+---
+
+## 5. Ranking levers (heuristics on the first-stage fused score)
 
 Applied as multipliers to the fused score, in both the ORDER BY **and** the returned score (so the displayed relevance stays monotonic with rank):
 
@@ -187,7 +195,7 @@ Only editions that publish per-category matrices get this (currently 2026). The 
 Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class retrieval), **Trust** (grounded, verified, measurably accurate), **Governance** (access control, audit, compliance), **Ops** (observability, caching, feedback, SLAs). Sections 1-13 are a strong core of Quality + Trust. The items below are **not built** — the advanced-quality, eval-at-scale, governance, and ops layers. Each: plain-English *what it is*, then status (✅ have · ◑ partial · ○ missing).
 
 ### 16.1 Retrieval quality
-- **Cross-encoder reranking** ○ — Today's vector search is a *bi-encoder*: the query and each document are turned into vectors **separately** and compared — fast, but it never reads them together. A **cross-encoder** is a smarter model that reads the query and one candidate **crossed together in the same pass** and scores the true match. Too slow for the whole corpus, so you run first-stage search to get ~50 candidates, then rerank just those. Biggest single quality jump for the least effort. Tools: Cohere Rerank, bge-reranker, Voyage rerank.
+- **Cross-encoder reranking** ✅ **built** (see §4a) — a second stage that reads the query and each candidate together (Voyage `rerank-2.5`) and reorders the first-stage pool. Lifted hit@1 60%→70%, MRR 0.800→0.833 on the eval set.
 - **Contextual Retrieval** (Anthropic) ○ — Before embedding a chunk, an LLM writes a one-line context ("from the 2026 AFC regs, dressing-room section") and prepends it, so the chunk is self-describing and gets found even when it's ambiguous alone. Anthropic reports ~35-49% fewer failed retrievals.
 - **Parent-document / small-to-big** ○ — Match on small precise chunks but return the larger surrounding section for context. Precision of small + richness of big.
 - **Field boosting** ○ — Weight a hit in the clause number/heading higher than a hit buried in body text.
@@ -222,9 +230,9 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Incremental / real-time indexing** ◑ — Today a standard reloads in a batch; enterprise wants live updates on change.
 
 ### 16.6 Priority order (highest impact first)
-1. **Cross-encoder reranking** (16.1) — biggest quality gain, least effort.
-2. **Contextual Retrieval** (16.1) — biggest recall gain.
-3. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
-4. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
-5. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
-6. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+- ✅ **Cross-encoder reranking** — done (§4a).
+1. **Contextual Retrieval** (16.1) — biggest recall gain.
+2. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
+3. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
+4. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
+5. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.

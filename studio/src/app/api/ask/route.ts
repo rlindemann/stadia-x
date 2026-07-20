@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, logAudit, rerankHits, type SearchFilters, type SearchHit } from "@/lib/db";
+import { cacheGet, cacheSet, embedQuery, figureSearch, getCategoryApplicability, getClausesByIds, graphExpand, hybridSearch, logAudit, rateLimited, rerankHits, type SearchFilters, type SearchHit } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 const EDGE_LABEL: Record<string, string> = {
@@ -89,6 +89,16 @@ export async function POST(req: NextRequest) {
   const hop = body.hop !== false; // GraphRAG expansion on by default
   const session = req.cookies.get("sx_session")?.value ?? null;
   const t0 = Date.now();
+
+  if (session && (await rateLimited(session, "ask", 12, 60))) {
+    return NextResponse.json({ error: "Rate limit exceeded — please slow down." }, { status: 429 });
+  }
+  const cacheKey = `ask:${question}:${hop}:${JSON.stringify(filters)}`;
+  const cachedAnswer = await cacheGet(cacheKey);
+  if (cachedAnswer) {
+    await logAudit({ session_id: session, action: "ask", target: question, status: "ok", latency_ms: 0, meta: { cached: true } });
+    return NextResponse.json(cachedAnswer);
+  }
 
   try {
     const { lexQuery } = expandLexicalQuery(question);
@@ -180,14 +190,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await logAudit({
-      session_id: session, action: "ask", target: question,
-      status: parsed.sufficient ? "ok" : "insufficient", latency_ms: Date.now() - t0,
-      meta: { seeds: hits.length, expanded: expanded.length, category, verified, issues: issues.length },
-    });
-
-    // Return seeds + graph-expanded clauses so the client can resolve every [[id]].
-    return NextResponse.json({
+    // Seeds + graph-expanded clauses so the client can resolve every [[id]].
+    const payload = {
       sufficient: parsed.sufficient,
       answer,
       verified,
@@ -203,7 +207,16 @@ export async function POST(req: NextRequest) {
         clause_path: f.clause_path,
         standard_title: f.standard_title,
       })),
+    };
+    if (parsed.sufficient) await cacheSet(cacheKey, payload, 1800); // 30 min; cleared on publish
+
+    await logAudit({
+      session_id: session, action: "ask", target: question,
+      status: parsed.sufficient ? "ok" : "insufficient", latency_ms: Date.now() - t0,
+      meta: { seeds: hits.length, expanded: expanded.length, category, verified, issues: issues.length },
     });
+
+    return NextResponse.json(payload);
   } catch (e) {
     await logAudit({ session_id: session, action: "ask", target: question, status: "error",
       latency_ms: Date.now() - t0, meta: { error: String((e as Error).message ?? e) } });

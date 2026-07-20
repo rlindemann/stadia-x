@@ -247,8 +247,10 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Observability / tracing** ✅ **built** (§17) — the same log is the telemetry: the `/admin/audit` view shows per-action volume, distinct sessions, error counts, and p50/p95 latency (last 24h).
 - **Session attribution** ✅ **built** — a `proxy.ts` sets an anonymous per-browser `sx_session` cookie so actions are attributable before auth exists (becomes the user id once auth lands).
 - **Access control (permission-filtered retrieval)** ○ — needs identity first; deferred pending an auth-provider decision + OAuth creds.
-- **PII redaction · multi-tenancy · rate limiting** ○ — data-isolation / abuse-prevention (multi-tenancy N/A for the in-house deployment).
-- **Caching · monitoring / alerting** ○ — query/embedding caches; alerts when quality or latency regress.
+- **Rate limiting** ✅ **built** — per-session sliding window (search 40/min, ask 12/min), enforced by counting recent `audit_log` rows (no extra table); returns `429` over the limit. Fails open on a DB error.
+- **Caching** ✅ **built** (§18) — a shared Postgres `cache` table: query **embeddings** (30-day TTL, corpus-independent), **search results** (10 min), and **Ask answers** (30 min). Cache hit ≈ **70ms** vs a cold ~1-2s+ pipeline; cleared on publish/unpublish/delete.
+- **PII redaction · multi-tenancy** ○ — N/A for the in-house single-tenant deployment.
+- **Monitoring / alerting** ○ — `/admin/audit` shows the metrics, but nothing pages you when errors/latency spike.
 - **Incremental / real-time indexing** ◑ — today a standard reloads in a batch; enterprise wants live updates on change.
 
 ### 16.6 Priority order (highest impact first)
@@ -275,3 +277,14 @@ The retrieval *quality* is largely solved. The remaining gaps are TRUST and GOVE
 - **When auth lands:** `session_id` becomes the real user id, unlocking per-user audit and permission-filtered retrieval — no schema change to the log.
 
 This is the accountability + monitoring substrate a security review asks for. Identity, roles, and permission-filtered retrieval sit on top and are deferred pending an auth-provider decision.
+
+---
+
+## 18. Caching & rate limiting (ops hardening)
+
+- **Cache** (`cache` table, shared across serverless instances): `cacheGet/cacheSet/cacheClear`.
+  - **Query embeddings** — `emb:voyage-3.5:<text>`, 30-day TTL. Deterministic and corpus-independent, so always safe to cache; skips the Voyage call on repeats. Applied transparently inside `embedQuery`.
+  - **Search results** — `search:<q>:<limit>:<filters>`, 10-min TTL.
+  - **Ask answers** — `ask:<q>:<hop>:<filters>`, 30-min TTL (only `sufficient` answers cached).
+  - Result caches are **cleared on publish/unpublish/delete** (the visible corpus changed); embeddings are not (corpus-independent). Measured: cache hit ≈ 70ms vs a full pipeline.
+- **Rate limiting** — `rateLimited(session, action, limit, windowSec)` counts recent `audit_log` rows for the session+action; over the limit returns `429`. Search 40/min, Ask 12/min. No extra table; fails open on error so a DB blip can't lock users out.

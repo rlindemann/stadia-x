@@ -129,6 +129,16 @@ create table if not exists audit_log (
 );
 create index if not exists audit_log_ts_idx on audit_log (ts desc);
 create index if not exists audit_log_action_idx on audit_log (action);
+create index if not exists audit_log_rate_idx on audit_log (session_id, action, ts);
+
+-- Shared cache (works across serverless instances): query embeddings (long TTL,
+-- corpus-independent), and search/ask results (short TTL). Cuts repeat cost + latency.
+create table if not exists cache (
+  key        text primary key,
+  value      jsonb not null,
+  expires_at timestamptz not null
+);
+create index if not exists cache_expires_idx on cache (expires_at);
 
 -- Indexes: HNSW cosine for semantic, GIN for full-text, plain for facets.
 create index if not exists clauses_embedding_idx on clauses using hnsw (embedding vector_cosine_ops);

@@ -18,7 +18,12 @@ async function query<T>(text: string, params: unknown[]): Promise<T[]> {
 const PUBLISHED = `coalesce(s.meta->>'review_status','published') <> 'pending'`;
 
 // Embed a search query with Voyage (same model + dimension used at load time).
+// Cached: query embeddings are deterministic and corpus-independent, so a repeat
+// query skips the Voyage call entirely.
 export async function embedQuery(text: string): Promise<number[]> {
+  const key = `emb:voyage-3.5:${text}`;
+  const cached = await cacheGet<number[]>(key);
+  if (cached) return cached;
   const res = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
     headers: {
@@ -34,7 +39,9 @@ export async function embedQuery(text: string): Promise<number[]> {
   });
   if (!res.ok) throw new Error(`Voyage ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  return data.data[0].embedding as number[];
+  const emb = data.data[0].embedding as number[];
+  await cacheSet(key, emb, 60 * 60 * 24 * 30); // 30 days
+  return emb;
 }
 
 const RERANK_MODEL = "rerank-2.5";
@@ -152,6 +159,37 @@ export function auditStats(hours = 24): Promise<AuditStat[]> {
      group by action order by n desc`,
     [hours],
   );
+}
+
+// ---- Shared cache (Postgres, works across serverless instances) ----
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  const rows = await query<{ value: T }>(`select value from cache where key = $1 and expires_at > now()`, [key]);
+  return rows[0]?.value ?? null;
+}
+export function cacheSet(key: string, value: unknown, ttlSec: number): Promise<void> {
+  return query(
+    `insert into cache (key, value, expires_at) values ($1, $2::jsonb, now() + make_interval(secs => $3))
+     on conflict (key) do update set value = excluded.value, expires_at = excluded.expires_at`,
+    [key, JSON.stringify(value), ttlSec],
+  ).then(() => undefined).catch(() => undefined); // caching must never break a request
+}
+export function cacheClear(prefix: string): Promise<void> {
+  return query(`delete from cache where key like $1`, [prefix + "%"]).then(() => undefined).catch(() => undefined);
+}
+
+// Rate limit by reusing the audit log: how many of this action did this session do in
+// the window? Indexed, cheap, no extra table. Fails open (allows) on a DB error.
+export async function rateLimited(session: string, action: string, limit: number, windowSec: number): Promise<boolean> {
+  try {
+    const rows = await query<{ n: number }>(
+      `select count(*)::int as n from audit_log
+       where session_id = $1 and action = $2 and ts > now() - make_interval(secs => $3)`,
+      [session, action, windowSec],
+    );
+    return (rows[0]?.n ?? 0) >= limit;
+  } catch {
+    return false;
+  }
 }
 
 export type SearchFilters = {

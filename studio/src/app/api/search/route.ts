@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedQuery, figureSearch, hybridSearch, logAudit, rerankHits, type SearchFilters } from "@/lib/db";
+import { cacheGet, cacheSet, embedQuery, figureSearch, hybridSearch, logAudit, rateLimited, rerankHits, type SearchFilters } from "@/lib/db";
 import { expandLexicalQuery } from "@/lib/synonyms";
 
 export const runtime = "nodejs";
@@ -32,9 +32,19 @@ function csv(v: string | null): string[] | undefined {
 
 async function handle(req: NextRequest, query: string, limit: number, filters: SearchFilters) {
   const session = req.cookies.get("sx_session")?.value ?? null;
+  if (session && (await rateLimited(session, "search", 40, 60))) {
+    return NextResponse.json({ error: "Rate limit exceeded — please slow down." }, { status: 429 });
+  }
+  const cacheKey = `search:${query}:${limit}:${JSON.stringify(filters)}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    await logAudit({ session_id: session, action: "search", target: query, status: "ok", latency_ms: 0, meta: { cached: true } });
+    return NextResponse.json(cached);
+  }
   const t0 = Date.now();
   try {
     const data = await run(query, limit, filters);
+    await cacheSet(cacheKey, data, 600); // 10 min; cleared on publish/unpublish
     await logAudit({ session_id: session, action: "search", target: query, status: "ok",
       latency_ms: Date.now() - t0, meta: { results: data.count, figures: data.figures.length, filters } });
     return NextResponse.json(data);

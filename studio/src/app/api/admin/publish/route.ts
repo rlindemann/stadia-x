@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteStandard, logAudit, setReviewStatus } from "@/lib/db";
+import { cacheClear, deleteStandard, logAudit, setReviewStatus } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
   try {
     if (action === "delete") await deleteStandard(id);
     else await setReviewStatus(id, action === "publish" ? "published" : "pending");
+    // The visible corpus changed — drop cached search/ask results (embeddings stay cached).
+    await Promise.all([cacheClear("search:"), cacheClear("ask:")]);
     await logAudit({ session_id: session, action, target: id, status: "ok" });
     return NextResponse.json({ ok: true });
   } catch (e) {

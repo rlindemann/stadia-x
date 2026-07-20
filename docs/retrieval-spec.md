@@ -114,6 +114,11 @@ For a compliance tool, users must trust *why* a clause surfaced. Each result sho
 - **"Matched on" chips** derived from the per-signal ranks: **Meaning** (dense), **Wording** (lexical), **Answers a question** (questions index), **Table** (a figure matched).
 - **Query-term highlighting** in the snippet and the matched question — you see *where* it hit.
 - **One honest Relevance bar** (the fused, de-ranked score normalized to the RRF upper bound `3/61`).
+- A **"Why this ranked here" diagnostics card** (expandable per result) — the full, auditable breakdown:
+  - **Where it sits** — the document hierarchy: `standard (edition) › heading_trail (section › article) › clause_path [block_type] · page`.
+  - **Indexed context** — the LLM-written contextual-retrieval sentence (§2a) that was embedded/indexed with the clause.
+  - **Match signals** — every score with its rank: rerank (cross-encoder) %, semantic (dense_sim) % + rank, anticipated-questions (q_sim) % + rank, keyword (ts_rank) + rank, and the fused RRF score.
+  The `context` field is carried through `SearchHit`; the rest were already computed and are now surfaced.
 
 ---
 

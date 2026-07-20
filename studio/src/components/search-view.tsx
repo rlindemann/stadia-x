@@ -28,6 +28,9 @@ type Hit = {
   q_sim: number | null;
   lex_score: number;
   matched_question: string | null;
+  block_type: string;
+  context: string | null;
+  rerank_score?: number;
 };
 
 type Figure = {
@@ -91,6 +94,20 @@ const EXAMPLES = [
   "flag poles at the stadium",
   "minimum pitch dimensions",
 ];
+
+// One row of the score breakdown: a labelled signal with a 0-100 bar (or a raw
+// value) and its rank in that signal's list.
+function Sig({ name, pct, raw, rank }: { name: string; pct?: number | null; raw?: number; rank?: number | null }) {
+  const has = pct != null;
+  return (
+    <div className="rd-s">
+      <span className="rd-s-name">{name}</span>
+      <span className="rd-s-bar">{has && <i style={{ ["--w" as string]: `${Math.round((pct ?? 0) * 100)}%` }} />}</span>
+      <span className="rd-s-val">{has ? `${Math.round((pct ?? 0) * 100)}%` : raw != null ? raw.toFixed(3) : "—"}</span>
+      <span className="rd-s-rank">{rank != null ? `#${rank}` : "—"}</span>
+    </div>
+  );
+}
 
 export function SearchView() {
   const [text, setText] = useState("");
@@ -415,6 +432,43 @@ export function SearchView() {
                 </span>
               </Link>
             )}
+
+            <details className="rd">
+              <summary>Why this ranked here — scores &amp; context</summary>
+              <div className="rd-body">
+                <div className="rd-row">
+                  <span className="rd-lbl">Where it sits</span>
+                  <span className="rd-crumb">
+                    {h.standard_title}
+                    {h.heading_trail && <> <span className="rd-arr">›</span> {h.heading_trail}</>}
+                    {" "}<span className="rd-arr">›</span> <b>{h.clause_path}</b>
+                    <span className="rd-bt">{h.block_type}</span> · p.{h.page}
+                  </span>
+                </div>
+                {h.context && (
+                  <div className="rd-row">
+                    <span className="rd-lbl">Indexed context <small>(added for retrieval)</small></span>
+                    <span className="rd-ctx">{h.context}</span>
+                  </div>
+                )}
+                <div className="rd-row">
+                  <span className="rd-lbl">Match signals</span>
+                  <div className="rd-sig">
+                    {h.rerank_score != null && <Sig name="Rerank (cross-encoder)" pct={h.rerank_score} />}
+                    <Sig name="Semantic (clause)" pct={h.dense_sim} rank={h.dense_rnk} />
+                    {h.q_sim != null && <Sig name="Anticipated questions" pct={h.q_sim} rank={h.qdense_rnk} />}
+                    <Sig name="Keyword (full-text)" raw={h.lex_score} rank={h.lex_rnk} />
+                    <div className="rd-fused">Fused RRF score <b>{h.score.toFixed(4)}</b> · final rank on this page reflects rerank + de-rank levers</div>
+                  </div>
+                </div>
+                {h.matched_question && (
+                  <div className="rd-row">
+                    <span className="rd-lbl">Best-matching question</span>
+                    <span className="rd-mq">“{h.matched_question}”</span>
+                  </div>
+                )}
+              </div>
+            </details>
 
             <div className="src">
               <Link href={`/clause/${h.id}`}>Detail</Link>

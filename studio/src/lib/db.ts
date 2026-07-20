@@ -110,6 +110,7 @@ export type SearchHit = {
   lex_score: number; // full-text ts_rank (0 if no lexical match)
   matched_question: string | null;
   rerank_score?: number; // cross-encoder relevance (0-1), set by rerankHits
+  context: string | null; // LLM-written situating sentence (contextual retrieval)
 };
 
 export type SearchFilters = {
@@ -199,7 +200,7 @@ fused as (
   left join lex l on l.clause_id = i.clause_id
 )
 select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher, c.clause_path, c.heading_trail,
-       c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type, c.verbatim_text,
+       c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type, c.context, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
        (f.score
          * case when s.status = 'Superseded' then 0.6 else 1 end
@@ -603,7 +604,7 @@ export function graphExpand(seedIds: number[], limit = 8): Promise<SearchHit[]> 
   return query<SearchHit>(
     `select distinct on (c.id)
             c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
-            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type, c.context,
             c.verbatim_text, c.defined_terms, c.uri, s.source_url,
             0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
             0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score,
@@ -724,7 +725,7 @@ export function getClausesByIds(ids: number[]): Promise<SearchHit[]> {
   if (ids.length === 0) return Promise.resolve([]);
   return query<SearchHit>(
     `select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
-            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type, c.context,
             c.verbatim_text, c.defined_terms, c.uri, s.source_url,
             0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
             0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score, null::text as matched_question

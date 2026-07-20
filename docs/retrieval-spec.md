@@ -226,7 +226,8 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Streaming** ○ — Show the answer as it types instead of waiting for the whole thing.
 
 ### 16.4 Evaluation & trust
-- **Eval at scale** ✅ **built** — `ingest/gen_eval.py` generates ~70 realistic differently-worded questions from real clauses, scored by `run.mjs` as a separate set. `run.mjs` reports two measures because exact-clause-id matching is too strict (a sibling/parent-section/other-edition clause is usually just as correct): **strict** (exact id) found@10 76% / hit@1 34%, and **topic** (accepts section/sub-clause/edition matches) found@10 **89%** / hit@1 **46%** — the honest baseline every future change must move. Still to add: RAGAS / LLM-as-judge for automated faithfulness/relevance scoring.
+- **Eval at scale** ✅ **built** — `ingest/gen_eval.py` generates ~70 realistic differently-worded questions from real clauses, scored by `run.mjs` as a separate set. Path-based scoring is reported two ways (strict exact-id 34% hit@1; topic — accepts sibling/parent/edition — 46%) but **both undercount**: a valid answer from a *different article* (e.g. "27 Camera Positions" for a camera question) scores as a miss.
+- **LLM-as-judge** ✅ **built** (`eval/judge.mjs`) — reads each question and the top results and asks whether they actually answer it. This is the honest quality number: **judge hit@1 91%, hit@3 96%**. (Credits partial answers, so a mild upper bound; truth is high either way.) The path-based measures were a ~2x undercount — three "quality gaps" chased this session (query rewriting, ranking granularity) turned out to be eval strictness, not the engine. Still to add: RAGAS-style faithfulness/context-precision on the Ask side.
 - **RAGAS / automated RAG metrics** ○ — A framework that auto-scores faithfulness, context-precision, and answer-relevance with an LLM — no manual labeling.
 - **LLM-as-judge** ○ — Use a strong model to grade answer quality automatically at scale.
 - **Feedback loop** ○ — Thumbs up/down on answers → use that signal to improve ranking over time.
@@ -242,9 +243,12 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 ### 16.6 Priority order (highest impact first)
 - ✅ **Cross-encoder reranking** — done (§4a).
 - ✅ **Contextual Retrieval** — done (§2a).
-- ✅ **Eval at scale** — done (16.4); honest baseline: topic found@10 89%, hit@1 46%. Every change below must move it.
-- ⏸ **Query rewriting / HyDE** — investigated and **deprioritised**. Inspecting the actual at-scale misses showed the failures are NOT vocabulary gaps (semantic + contextual retrieval already bridge them) — they are eval strictness + granularity (section vs sub-clause). Fixing the wrong problem. Revisit only if a future miss-analysis shows real paraphrase failures.
-1. **Ranking granularity** — topic hit@1 is only 46%: the specific sub-clause often loses #1 to a broader section-level match. The bare-title de-rank (§4a) is a first step; more headroom here.
-2. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
-3. **RAGAS / LLM-as-judge** (16.4) — automated faithfulness/relevance scoring on top of the pair-based eval.
-4. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+- ✅ **Eval at scale + LLM-as-judge** — done (16.4). True quality: **judge hit@1 91%, hit@3 96%**. Retrieval is strong; this is the number to hold, not chase.
+- ⏸ **Query rewriting / HyDE** — investigated, **deprioritised**: the misses were eval strictness, not vocabulary gaps.
+- ⏸ **Ranking granularity** — investigated, **deprioritised**: the #1 results winning over the "source" clause are valid alternative answers, not wrong (judge hit@1 91% proves it). No real problem.
+
+The retrieval *quality* is largely solved. The remaining gaps are TRUST and GOVERNANCE:
+1. **Answer self-verification** (16.3) — a second pass checks the Ask answer against its sources; closes the last hallucination risk (compliance-critical).
+2. **RAGAS-style Ask eval** (16.4) — faithfulness / context-precision on generated answers (the judge covers retrieval; this covers generation).
+3. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.
+4. **The 3 genuine top-3 misses** (4%) — the only real retrieval misses left; worth a look when convenient.

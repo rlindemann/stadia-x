@@ -14,11 +14,10 @@
 ## Working documentation
 
 All documents for this project are in the docs/ directory. The live ones:
+- docs/retrieval-spec.md - the complete, portable search/retrieval specification (canonical; copy-anywhere)
 - docs/BUILD.md - project state / resume-here
-- docs/retrieval-spec.md - the complete search/retrieval specification (canonical)
-- docs/extraction-build-spec.md - the cross-project four-extractor substrate (optional)
 - docs/ROADMAP.md - feature backlog
-Historical planning blueprints are in docs/archive/.
+Historical and cross-project docs are in docs/archive/.
 
 ## YOLO MODE
 

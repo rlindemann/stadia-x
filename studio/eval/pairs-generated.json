@@ -1,0 +1,562 @@
+[
+  {
+    "id": "gen-0",
+    "q": "How much flexibility do stadiums have when the league needs room for broadcasting equipment and camera setups?",
+    "clause_id": 551,
+    "clause_path": "30.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-1",
+    "q": "Who has to pay for making sure a venue gets the proper safety clearance documents that meet AFC standards?",
+    "clause_id": 439,
+    "clause_path": "2.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-2",
+    "q": "What facilities should a stadium provide for maintaining broadcast equipment during matches?",
+    "clause_id": 777,
+    "clause_path": "25.5",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-3",
+    "q": "Do the media rooms in AFC stadiums need to have fast internet that works both ways, and what's the minimum speed required?",
+    "clause_id": 728,
+    "clause_path": "17.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-4",
+    "q": "How should team benches be positioned so they don't block what fans can see?",
+    "clause_id": 701,
+    "clause_path": "12.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-5",
+    "q": "How should a stadium prevent unauthorized people from entering the premium seating sections?",
+    "clause_id": 596,
+    "clause_path": "41.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-6",
+    "q": "What amenities should be available at the photo positions along the field where press photographers work?",
+    "clause_id": 536,
+    "clause_path": "26.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-7",
+    "q": "How should a stadium design its parking areas to protect vehicles and ensure staff can quickly reach where they need to work?",
+    "clause_id": 522,
+    "clause_path": "21.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-8",
+    "q": "Where should a stadium set up its flagpoles and what other options exist for displaying flags?",
+    "clause_id": 1031,
+    "clause_path": "13",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-9",
+    "q": "What kinds of field materials can be used for games in AFC stadiums?",
+    "clause_id": 448,
+    "clause_path": "5.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-10",
+    "q": "How many daily flight connections should a stadium's nearby airport have to an international hub if the venue is in a well-connected location?",
+    "clause_id": 446,
+    "clause_path": "4.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-11",
+    "q": "How should media personnel be able to move between the press booth and the interview areas at an AFC-regulated venue?",
+    "clause_id": 528,
+    "clause_path": "23.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-12",
+    "q": "Where should a stadium set up its replay review area when using video assistant referee technology?",
+    "clause_id": 695,
+    "clause_path": "11.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-13",
+    "q": "What equipment must be provided inside each locker room for players?",
+    "clause_id": 715,
+    "clause_path": "15.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-14",
+    "q": "When does a venue need to be made available exclusively to the AFC and what condition should it be in?",
+    "clause_id": 443,
+    "clause_path": "3.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-15",
+    "q": "What height clearance is required above a football pitch in an AFC-regulated stadium?",
+    "clause_id": 670,
+    "clause_path": "6.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-16",
+    "q": "Where should a stadium set up its monitoring and command center, and what equipment does it need to have there?",
+    "clause_id": 1028,
+    "clause_path": "10",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-17",
+    "q": "How many protected seating areas must a stadium provide for backup athletes and staff from each team?",
+    "clause_id": 698,
+    "clause_path": "12.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-18",
+    "q": "What seating and facilities should be provided in a press box area of a stadium?",
+    "clause_id": 1064,
+    "clause_path": "22",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-19",
+    "q": "Where should a stadium ideally position its press box in relation to other media facilities?",
+    "clause_id": 782,
+    "clause_path": "26.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-20",
+    "q": "Where should broadcast booths be positioned so they can see the whole game without anything blocking their view?",
+    "clause_id": 556,
+    "clause_path": "31.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-21",
+    "q": "What accommodations must stadiums provide for spectators with vision disabilities or mobility challenges?",
+    "clause_id": 623,
+    "clause_path": "48.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-22",
+    "q": "How many people at minimum should a stadium be able to hold depending on what category it falls under?",
+    "clause_id": 862,
+    "clause_path": "41.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-23",
+    "q": "What medical services need to be set up in different parts of the stadium where fans sit?",
+    "clause_id": 619,
+    "clause_path": "47.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-24",
+    "q": "How many large display boards are required for each category of stadium according to AFC regulations?",
+    "clause_id": 691,
+    "clause_path": "10.5-table",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-25",
+    "q": "What facilities does a venue need to have available for drug testing of athletes competing in the event?",
+    "clause_id": 855,
+    "clause_path": "40.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-26",
+    "q": "Where should a stadium set up seating for journalists to work, and what kind of equipment do they need at their workstations?",
+    "clause_id": 527,
+    "clause_path": "23.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-27",
+    "q": "What backup power arrangements must a stadium have in place to keep announcements working if the main electricity goes down?",
+    "clause_id": 912,
+    "clause_path": "52.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-28",
+    "q": "Where should a stadium set up a brightly illuminated space where players can briefly interact with media after matches?",
+    "clause_id": 531,
+    "clause_path": "25.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-29",
+    "q": "What special seating and lounge facilities must different categories of sports venues provide for high-ranking guests and dignitaries?",
+    "clause_id": 885,
+    "clause_path": "47.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-30",
+    "q": "What seating areas need to meet the accessibility requirements for a main stand in AFC stadiums?",
+    "clause_id": 866,
+    "clause_path": "42.1.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-31",
+    "q": "What requirements must a stadium's parking areas meet in terms of safety and accessibility?",
+    "clause_id": 759,
+    "clause_path": "22.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-32",
+    "q": "What backup measures do stadiums need to have in place so games can continue if the lights go out?",
+    "clause_id": 459,
+    "clause_path": "8.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-33",
+    "q": "How many seats should a stadium reserve for broadcasters who need to watch before and after the game?",
+    "clause_id": 1075,
+    "clause_path": "33",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-34",
+    "q": "Where should a stadium reserve parking spots for the television crew working on a match broadcast?",
+    "clause_id": 573,
+    "clause_path": "35.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-35",
+    "q": "What am I allowed to broadcast over the loudspeakers at an AFC-regulated venue?",
+    "clause_id": 910,
+    "clause_path": "52.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-36",
+    "q": "Where should a visiting team's seating section be positioned in an AFC-regulated stadium?",
+    "clause_id": 511,
+    "clause_path": "19.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-37",
+    "q": "What are the smallest acceptable dimensions for advertising boards behind the goal line at different venue tiers?",
+    "clause_id": 801,
+    "clause_path": "28.1.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-38",
+    "q": "How should premium seating areas be kept separate from regular crowds and prevent unwanted mixing with visitors and press?",
+    "clause_id": 888,
+    "clause_path": "47.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-39",
+    "q": "How should a stadium maintain its gathering areas and event spaces on game days?",
+    "clause_id": 663,
+    "clause_path": "4.6",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-40",
+    "q": "What internet and computing equipment must be available in the AFC administrative offices?",
+    "clause_id": 496,
+    "clause_path": "16.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-41",
+    "q": "How long is a stadium's lighting certificate good for before it needs to be renewed?",
+    "clause_id": 461,
+    "clause_path": "8.3.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-42",
+    "q": "How fast do the sliding tunnels need to move so they don't block spectators' sightlines for too long when players go on and off the pitch?",
+    "clause_id": 707,
+    "clause_path": "13.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-43",
+    "q": "How should a stadium organize the area where media interact with players after matches?",
+    "clause_id": 797,
+    "clause_path": "28.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-44",
+    "q": "What furniture and utilities should be set up in the technical staff's viewing section?",
+    "clause_id": 512,
+    "clause_path": "19.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-45",
+    "q": "How should media members get to the press conference area and broadcasting booth without crossing through other parts of the stadium?",
+    "clause_id": 535,
+    "clause_path": "25.5",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-46",
+    "q": "How many broadcast booths with clear sightlines to the playing area should a stadium have available?",
+    "clause_id": 1070,
+    "clause_path": "28",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-47",
+    "q": "How should a stadium design its entry points to prevent crowding and keep people moving smoothly?",
+    "clause_id": 892,
+    "clause_path": "48.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-48",
+    "q": "What free facilities and space must a stadium provide to companies that have paid for exclusive sponsorship deals?",
+    "clause_id": 626,
+    "clause_path": "51.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-49",
+    "q": "Where should a stadium post signs to help visitors find bathrooms and food stands?",
+    "clause_id": 898,
+    "clause_path": "48.6.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-50",
+    "q": "How should stadium seating be labeled so visitors can quickly find their spot?",
+    "clause_id": 878,
+    "clause_path": "44.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-51",
+    "q": "How should a stadium's lighting setup be designed to prevent matches from being cancelled due to electrical outages?",
+    "clause_id": 681,
+    "clause_path": "9.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-52",
+    "q": "How should a stadium's communication network be designed to prevent a single failure from disrupting operations throughout the entire facility?",
+    "clause_id": 766,
+    "clause_path": "24.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-53",
+    "q": "How should indoor spaces in an AFC stadium be kept comfortable for occupants throughout the year?",
+    "clause_id": 499,
+    "clause_path": "16.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-54",
+    "q": "Who has the authority to officially recognize when extraordinary circumstances beyond anyone's control prevent a match from being played?",
+    "clause_id": 636,
+    "clause_path": "57.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-55",
+    "q": "How much area do commercial partners need to set up their promotional activities at an AFC-regulated venue?",
+    "clause_id": 627,
+    "clause_path": "51.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-56",
+    "q": "How should a stadium organize its seating areas to manage crowd flow and provide necessary amenities to different groups of spectators?",
+    "clause_id": 1079,
+    "clause_path": "37",
+    "standard_id": "AFC-STADIUM-REGULATIONS-24051",
+    "generated": true
+  },
+  {
+    "id": "gen-57",
+    "q": "Can a stadium broadcast advertisements through its loudspeaker system without getting permission from the AFC first?",
+    "clause_id": 911,
+    "clause_path": "52.3.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-58",
+    "q": "What kinds of electronic systems might the AFC ask stadiums to install for monitoring plays, and who is responsible for setting up the technical infrastructure needed to run them?",
+    "clause_id": 769,
+    "clause_path": "24.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-59",
+    "q": "What kind of power setup does the broadcast control room need to have?",
+    "clause_id": 696,
+    "clause_path": "11.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-60",
+    "q": "How many private rooms or enclosed areas must a stadium provide at minimum based on its category classification?",
+    "clause_id": 838,
+    "clause_path": "36.1.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-61",
+    "q": "How far back should team benches be set from the edge of the playing field?",
+    "clause_id": 476,
+    "clause_path": "11.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-62",
+    "q": "What kind of flooring should be installed in the passageways connecting the locker rooms to the playing field?",
+    "clause_id": 708,
+    "clause_path": "13.4",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-63",
+    "q": "Where should the broadcast booth be positioned so commentators can see the whole game without anything blocking their view?",
+    "clause_id": 828,
+    "clause_path": "35.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-64",
+    "q": "What happens if a stadium doesn't follow the rules laid out in these AFC guidelines?",
+    "clause_id": 954,
+    "clause_path": "62.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-65",
+    "q": "How much room do stadiums need to set aside so that phone carriers can set up their equipment and keep signal working when crowds get big?",
+    "clause_id": 767,
+    "clause_path": "24.2",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-66",
+    "q": "How do referees get from their locker room to the field without going through public areas?",
+    "clause_id": 490,
+    "clause_path": "15.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2021",
+    "generated": true
+  },
+  {
+    "id": "gen-67",
+    "q": "When does the timekeeper pause the match timer during a football game?",
+    "clause_id": 685,
+    "clause_path": "10.3",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-68",
+    "q": "How many broadcast booths does a Category C stadium need to have at minimum?",
+    "clause_id": 827,
+    "clause_path": "35.1.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  },
+  {
+    "id": "gen-69",
+    "q": "What are the minimum brightness requirements and evenness standards for lighting in different categories of football stadiums?",
+    "clause_id": 687,
+    "clause_path": "9.1.1",
+    "standard_id": "AFC-STADIUM-REGULATIONS-2026",
+    "generated": true
+  }
+]

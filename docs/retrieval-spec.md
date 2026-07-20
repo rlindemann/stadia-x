@@ -224,7 +224,7 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Streaming** ○ — Show the answer as it types instead of waiting for the whole thing.
 
 ### 16.4 Evaluation & trust
-- **Eval at scale** ◑ — We have 11 approved pairs; real eval means 100s of labeled queries with standard metrics (NDCG, recall@k, MRR).
+- **Eval at scale** ✅ **built** — `ingest/gen_eval.py` generates ~70 realistic differently-worded questions from real clauses (ground truth = clause id), scored by `run.mjs` as a separate set. It exposed the true baseline the 10-pair set hid: **found@10 74%, hit@1 34%, MRR 0.479** (vs the easy approved set's 100%/70%). Synthetic, so ~a pessimistic floor, but a stable comparable number. Still to add: RAGAS / LLM-as-judge for automated faithfulness/relevance scoring.
 - **RAGAS / automated RAG metrics** ○ — A framework that auto-scores faithfulness, context-precision, and answer-relevance with an LLM — no manual labeling.
 - **LLM-as-judge** ○ — Use a strong model to grade answer quality automatically at scale.
 - **Feedback loop** ○ — Thumbs up/down on answers → use that signal to improve ranking over time.
@@ -240,7 +240,8 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 ### 16.6 Priority order (highest impact first)
 - ✅ **Cross-encoder reranking** — done (§4a).
 - ✅ **Contextual Retrieval** — done (§2a).
-1. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses.
+- ✅ **Eval at scale** — done (16.4); baseline found@10 74%, hit@1 34%, MRR 0.479. This is now the number every change below must move.
+1. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses (the 26% not found@10).
 2. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
-3. **Eval at scale + RAGAS / LLM-judge** (16.4) — turns "we think it's good" into a defended number.
+3. **RAGAS / LLM-as-judge** (16.4) — automated faithfulness/relevance scoring on top of the pair-based eval.
 4. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.

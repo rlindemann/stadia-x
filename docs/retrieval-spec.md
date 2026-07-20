@@ -79,7 +79,9 @@ This is the **first stage** — it produces a candidate pool of ~40 (Search) / ~
 
 ## 4a. Cross-encoder reranking (second stage)
 
-The hybrid stage is a **bi-encoder**: query and clause are embedded *separately*, so nothing ever reads them together. `rerankHits` (`db.ts`) adds a second stage — a **cross-encoder** (Voyage `rerank-2.5`) that reads the query and each candidate **together** and scores the true match, then reorders the pool; Search keeps the top `limit`, Ask keeps the top 8 seeds. Too slow for the whole corpus, so it only runs on the ~40/~24 first-stage pool. Superseded clauses are nudged ×0.6 on the rerank score to keep the current-edition preference. **Falls back to the first-stage order** if the rerank API errors, so search never breaks. Measured lift on the eval set: hit@1 60%→70%, MRR 0.800→0.833.
+The hybrid stage is a **bi-encoder**: query and clause are embedded *separately*, so nothing ever reads them together. `rerankHits` (`db.ts`) adds a second stage — a **cross-encoder** (Voyage `rerank-2.5`) that reads the query and each candidate **together** and scores the true match, then reorders the pool; Search keeps the top `limit`, Ask keeps the top 8 seeds. Too slow for the whole corpus, so it only runs on the ~40/~24 first-stage pool.
+
+The final order is the rerank score with **penalties** for rows a topic search doesn't want: superseded editions ×0.6, glossary definitions ×0.7, and **bare navigational titles** ×0.45 — a `section`/`heading` row whose text is a short title (<160 chars). This is length-gated on purpose: some section rows absorbed their requirement text (e.g. 24051 §10 Control Room, 332 chars) and ARE the answer, so they must not be de-ranked. **Falls back to the first-stage order** if the rerank API errors, so search never breaks. Measured lift: hit@1 60%→70% on the approved set.
 
 ---
 
@@ -224,7 +226,7 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 - **Streaming** ○ — Show the answer as it types instead of waiting for the whole thing.
 
 ### 16.4 Evaluation & trust
-- **Eval at scale** ✅ **built** — `ingest/gen_eval.py` generates ~70 realistic differently-worded questions from real clauses (ground truth = clause id), scored by `run.mjs` as a separate set. It exposed the true baseline the 10-pair set hid: **found@10 74%, hit@1 34%, MRR 0.479** (vs the easy approved set's 100%/70%). Synthetic, so ~a pessimistic floor, but a stable comparable number. Still to add: RAGAS / LLM-as-judge for automated faithfulness/relevance scoring.
+- **Eval at scale** ✅ **built** — `ingest/gen_eval.py` generates ~70 realistic differently-worded questions from real clauses, scored by `run.mjs` as a separate set. `run.mjs` reports two measures because exact-clause-id matching is too strict (a sibling/parent-section/other-edition clause is usually just as correct): **strict** (exact id) found@10 76% / hit@1 34%, and **topic** (accepts section/sub-clause/edition matches) found@10 **89%** / hit@1 **46%** — the honest baseline every future change must move. Still to add: RAGAS / LLM-as-judge for automated faithfulness/relevance scoring.
 - **RAGAS / automated RAG metrics** ○ — A framework that auto-scores faithfulness, context-precision, and answer-relevance with an LLM — no manual labeling.
 - **LLM-as-judge** ○ — Use a strong model to grade answer quality automatically at scale.
 - **Feedback loop** ○ — Thumbs up/down on answers → use that signal to improve ranking over time.
@@ -240,8 +242,9 @@ Honest scope. "Enterprise grade" is four pillars: **Quality** (best-in-class ret
 ### 16.6 Priority order (highest impact first)
 - ✅ **Cross-encoder reranking** — done (§4a).
 - ✅ **Contextual Retrieval** — done (§2a).
-- ✅ **Eval at scale** — done (16.4); baseline found@10 74%, hit@1 34%, MRR 0.479. This is now the number every change below must move.
-1. **Query rewriting / multi-query + HyDE** (16.2) — catches paraphrase/vocabulary misses (the 26% not found@10).
+- ✅ **Eval at scale** — done (16.4); honest baseline: topic found@10 89%, hit@1 46%. Every change below must move it.
+- ⏸ **Query rewriting / HyDE** — investigated and **deprioritised**. Inspecting the actual at-scale misses showed the failures are NOT vocabulary gaps (semantic + contextual retrieval already bridge them) — they are eval strictness + granularity (section vs sub-clause). Fixing the wrong problem. Revisit only if a future miss-analysis shows real paraphrase failures.
+1. **Ranking granularity** — topic hit@1 is only 46%: the specific sub-clause often loses #1 to a broader section-level match. The bare-title de-rank (§4a) is a first step; more headroom here.
 2. **Answer self-verification** (16.3) — closes the last hallucination risk (compliance-critical).
 3. **RAGAS / LLM-as-judge** (16.4) — automated faithfulness/relevance scoring on top of the pair-based eval.
 4. **Governance: access control + audit + observability** (16.5) — the enterprise non-negotiables.

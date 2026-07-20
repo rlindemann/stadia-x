@@ -64,7 +64,18 @@ export async function rerankHits(query: string, hits: SearchHit[]): Promise<Sear
       ...hits[r.index],
       rerank_score: r.relevance_score,
     }));
-    const w = (h: SearchHit) => (h.rerank_score ?? 0) * (h.standard_status === "Superseded" ? 0.6 : 1);
+    // Final ordering = rerank relevance, penalised for rows a topic search doesn't want:
+    // superseded editions, glossary definitions, and **bare** navigational titles. A
+    // section/heading row is only penalised when it is a short title (some section rows
+    // absorbed their requirement text and ARE the answer — e.g. 24051 §10 Control Room,
+    // 332 chars — those must not be de-ranked). Evidence: the at-scale eval.
+    const bareTitle = (h: SearchHit) =>
+      (h.block_type === "section" || h.block_type === "heading") && (h.verbatim_text?.length ?? 999) < 160;
+    const w = (h: SearchHit) =>
+      (h.rerank_score ?? 0) *
+      (h.standard_status === "Superseded" ? 0.6 : 1) *
+      (h.block_type === "definition" ? 0.7 : 1) *
+      (bareTitle(h) ? 0.45 : 1);
     ranked.sort((a, b) => w(b) - w(a));
     return ranked;
   } catch (e) {
@@ -85,6 +96,7 @@ export type SearchHit = {
   pdf_file_page: number;
   obligation_type: string;
   normativity: string;
+  block_type: string; // paragraph | heading | section | definition | table | list_item
   verbatim_text: string;
   defined_terms: string[];
   uri: string | null;
@@ -187,7 +199,7 @@ fused as (
   left join lex l on l.clause_id = i.clause_id
 )
 select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher, c.clause_path, c.heading_trail,
-       c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.verbatim_text,
+       c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type, c.verbatim_text,
        c.defined_terms, c.uri, s.source_url,
        (f.score
          * case when s.status = 'Superseded' then 0.6 else 1 end
@@ -591,7 +603,7 @@ export function graphExpand(seedIds: number[], limit = 8): Promise<SearchHit[]> 
   return query<SearchHit>(
     `select distinct on (c.id)
             c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
-            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type,
             c.verbatim_text, c.defined_terms, c.uri, s.source_url,
             0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
             0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score,
@@ -712,7 +724,7 @@ export function getClausesByIds(ids: number[]): Promise<SearchHit[]> {
   if (ids.length === 0) return Promise.resolve([]);
   return query<SearchHit>(
     `select c.id, c.standard_id, s.title as standard_title, s.status as standard_status, s.publisher,
-            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity,
+            c.clause_path, c.heading_trail, c.page, c.pdf_file_page, c.obligation_type, c.normativity, c.block_type,
             c.verbatim_text, c.defined_terms, c.uri, s.source_url,
             0::float8 as score, null::int as dense_rnk, null::int as qdense_rnk, null::int as lex_rnk,
             0::float8 as dense_sim, null::float8 as q_sim, 0::float8 as lex_score, null::text as matched_question

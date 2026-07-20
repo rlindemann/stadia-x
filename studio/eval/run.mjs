@@ -34,6 +34,12 @@ const lc = (s) => (s ?? "").toLowerCase();
 const citedIds = (a) => [...a.matchAll(/\[\[(\d+)\]\]/g)].map((m) => m[1]);
 const pad = (s, n) => String(s).padEnd(n).slice(0, n);
 const hit = (r, p) => (p.clause_id != null ? String(r.id) === String(p.clause_id) : (p.clauses ?? []).includes(r.clause_path));
+// lenient "topic hit": same clause_path (any edition) or a parent-section / sub-clause of it
+const clean = (s) => (s ?? "").replace(/\.$/, "");
+const topicHit = (r, p) => {
+  const rp = clean(r.clause_path), wp = clean(p.clause_path);
+  return !!rp && !!wp && (rp === wp || rp.startsWith(wp + ".") || wp.startsWith(rp + "."));
+};
 
 async function search(q) {
   const r = await fetch(`${BASE}/api/search?q=${encodeURIComponent(q)}&limit=20`);
@@ -48,7 +54,10 @@ async function ask(q) {
   return r.json();
 }
 
-const S = { approved: { n: 0, found: 0, h1: 0, h5: 0, mrr: 0 }, generated: { n: 0, found: 0, h1: 0, h5: 0, mrr: 0 } };
+const S = {
+  approved: { n: 0, found: 0, h1: 0, h5: 0, mrr: 0 },
+  generated: { n: 0, found: 0, h1: 0, h5: 0, mrr: 0, lfound: 0, lh1: 0, lh5: 0, lmrr: 0 },
+};
 let aTotal = 0, aPass = 0, hardFail = 0;
 
 for (const p of pairs) {
@@ -56,10 +65,14 @@ for (const p of pairs) {
     const s = S[p.set];
     s.n++;
     const res = await search(p.q);
-    let rank = 0;
-    for (let i = 0; i < Math.min(res.length, K); i++) if (hit(res[i], p)) { rank = i + 1; break; }
+    let rank = 0, lrank = 0;
+    for (let i = 0; i < Math.min(res.length, K); i++) {
+      if (!rank && hit(res[i], p)) rank = i + 1;
+      if (!lrank && (p.set === "generated" ? topicHit(res[i], p) : hit(res[i], p))) lrank = i + 1;
+    }
     if (rank) { s.found++; s.mrr += 1 / rank; if (rank === 1) s.h1++; if (rank <= 5) s.h5++; }
     else if (p.set === "approved") hardFail++;
+    if (p.set === "generated" && lrank) { s.lfound++; s.lmrr += 1 / lrank; if (lrank === 1) s.lh1++; if (lrank <= 5) s.lh5++; }
   }
   if (DO_ASK && (p.facts || p.abstain)) {
     aTotal++;
@@ -84,6 +97,8 @@ const report = (name, s) => {
   console.log(`  hit@1     ${pad(s.h1 + "/" + s.n, 8)} ${pc(s.h1)}`);
   console.log(`  hit@5     ${pad(s.h5 + "/" + s.n, 8)} ${pc(s.h5)}`);
   console.log(`  MRR       ${(s.mrr / s.n).toFixed(3)}`);
+  if (s.lfound !== undefined)
+    console.log(`  topic     found@${K} ${pc(s.lfound)}  hit@1 ${pc(s.lh1)}  hit@5 ${pc(s.lh5)}  MRR ${(s.lmrr / s.n).toFixed(3)}   <- exact-clause too strict; this counts section/sub-clause/edition matches`);
 };
 
 console.log("\n");

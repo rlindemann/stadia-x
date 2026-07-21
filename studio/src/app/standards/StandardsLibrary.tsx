@@ -47,7 +47,7 @@ export function StandardsLibrary({
           className={`lib-doc lib-all${doc === "" ? " on" : ""}`}
           onClick={() => setDoc("")}
         >
-          <span className="lib-doc-title">All standards</span>
+          <span className="lib-doc-title">All documents</span>
           <span className="lib-doc-count">{totalClauses}</span>
           <span className="lib-doc-meta">{standards.length} documents · every clause</span>
         </button>
@@ -110,7 +110,7 @@ export function StandardsLibrary({
         <div className="sc-filter">
           <input
             className="sc-input"
-            placeholder="Filter by clause number, standard, or text…"
+            placeholder="Filter by clause number, document, or text…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />

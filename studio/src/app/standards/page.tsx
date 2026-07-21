@@ -1,7 +1,7 @@
 import { listAllClauses, listStandards } from "@/lib/db";
 import { StandardsLibrary } from "./StandardsLibrary";
 
-export const metadata = { title: "Standards — STADIA-X" };
+export const metadata = { title: "Documents — STADIA-X" };
 export const dynamic = "force-dynamic";
 
 export default async function StandardsPage({
@@ -19,7 +19,7 @@ export default async function StandardsPage({
   return (
     <div className="stage">
       <div className="page-head">
-        <h1 className="page-title">Standards library</h1>
+        <h1 className="page-title">Documents</h1>
         <p className="page-sub">
           Every document and every clause in one place. Pick a document on the left to focus its
           clauses, or browse all {total} at once. {standards.length} document

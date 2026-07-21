@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AllClauseRow, StandardRow } from "@/lib/db";
 
 const OB_CLASS: Record<string, string> = {
@@ -35,19 +35,34 @@ export function StandardsLibrary({
   clauses: AllClauseRow[];
   initialDoc?: string;
 }) {
-  const [doc, setDoc] = useState(initialDoc);
+  const [sel, setSel] = useState<string[]>(initialDoc ? [initialDoc] : []);
   const [kind, setKind] = useState("");
   const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
   const [hover, setHover] = useState<StandardRow | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const pickRef = useRef<HTMLDivElement>(null);
 
+  // Close the picker on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (pickRef.current && !pickRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const toggleDoc = (id: string) =>
+    setSel((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const selDocs = standards.filter((s) => sel.includes(s.id));
   const totalClauses = clauses.length;
-  const selected = standards.find((s) => s.id === doc) ?? null;
 
-  // Clauses in the selected document (before type/text filters) — drives the type-chip counts.
+  // Clauses in the selected documents (empty selection = all) — drives the type-chip counts.
   const docFiltered = useMemo(
-    () => clauses.filter((c) => !doc || c.standard_id === doc),
-    [clauses, doc],
+    () => clauses.filter((c) => sel.length === 0 || sel.includes(c.standard_id)),
+    [clauses, sel],
   );
   const kindCounts = useMemo(() => {
     const m: Record<string, number> = { "": docFiltered.length };
@@ -71,70 +86,103 @@ export function StandardsLibrary({
     });
   }, [q, kind, docFiltered]);
 
+  const headTitle =
+    sel.length === 0 ? "All clauses" : sel.length === 1 ? selDocs[0]?.title : `${sel.length} documents`;
+  const headSub =
+    sel.length === 1
+      ? [selDocs[0]?.publisher, selDocs[0]?.version].filter(Boolean).join(" · ") +
+        (selDocs[0]?.status === "Superseded" && selDocs[0]?.superseded_by_title
+          ? ` · superseded by ${selDocs[0].superseded_by_title}`
+          : "")
+      : sel.length === 0
+        ? "Every clause across all documents, in reading order."
+        : `Combined clauses from ${sel.length} selected documents.`;
+
   return (
     <div className="lib">
-      {/* Left rail — the document catalogue */}
+      {/* Left rail — pick one or more documents */}
       <aside className="lib-docs">
-        <button
-          type="button"
-          className={`lib-doc lib-all${doc === "" ? " on" : ""}`}
-          onClick={() => setDoc("")}
-        >
-          <span className="lib-doc-title">All documents</span>
-          <span className="lib-doc-count">{totalClauses}</span>
-          <span className="lib-doc-meta">{standards.length} documents · every clause</span>
-        </button>
-
-        {standards.map((s) => (
+        <div className="lib-picker" ref={pickRef}>
           <button
             type="button"
-            key={s.id}
-            className={`lib-doc${doc === s.id ? " on" : ""}`}
-            onClick={() => setDoc(s.id)}
-            onMouseEnter={() => s.thumb_url && setHover(s)}
-            onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
-            onMouseLeave={() => setHover(null)}
+            className="lib-picker-btn"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
           >
-            <span className="lib-doc-title">{s.title}</span>
-            <span className="lib-doc-count">{s.clause_count}</span>
-            <span className="lib-doc-meta">
-              {[s.publisher, s.version].filter(Boolean).join(" · ") || "—"}
-            </span>
-            <span className="lib-doc-tags">
-              <span className={`status ${s.status === "Superseded" ? "superseded" : ""}`}>
-                <span className="sw" />
-                {s.status ?? "—"}
-              </span>
-              {s.superseded_by_title && (
-                <span className="lib-repl">→ {s.superseded_by_title}</span>
-              )}
-            </span>
+            <span>{sel.length === 0 ? "All documents" : `${sel.length} selected`}</span>
+            <span className="lib-caret" aria-hidden />
           </button>
-        ))}
+          {open && (
+            <div className="lib-picker-menu" role="listbox">
+              {standards.map((s) => (
+                <label
+                  className="lib-pick"
+                  key={s.id}
+                  onMouseEnter={() => s.thumb_url && setHover(s)}
+                  onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
+                  onMouseLeave={() => setHover(null)}
+                >
+                  <input type="checkbox" checked={sel.includes(s.id)} onChange={() => toggleDoc(s.id)} />
+                  <span className="lib-pick-title">
+                    {s.title}
+                    {s.status === "Superseded" ? <span className="lib-pick-sup"> superseded</span> : null}
+                  </span>
+                  <span className="lib-pick-n">{s.clause_count}</span>
+                </label>
+              ))}
+              {sel.length > 0 && (
+                <button type="button" className="lib-clear" onClick={() => setSel([])}>
+                  Clear selection
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Selected documents, each removable; the "all" card stands in when none are picked. */}
+        {sel.length === 0 ? (
+          <div className="lib-doc lib-all on">
+            <span className="lib-doc-title">All documents</span>
+            <span className="lib-doc-count">{totalClauses}</span>
+            <span className="lib-doc-meta">{standards.length} documents · every clause</span>
+          </div>
+        ) : (
+          selDocs.map((s) => (
+            <div className="lib-doc on" key={s.id}>
+              <span className="lib-doc-title">{s.title}</span>
+              <button
+                type="button"
+                className="lib-doc-x"
+                aria-label={`Remove ${s.title}`}
+                onClick={() => toggleDoc(s.id)}
+              >
+                ×
+              </button>
+              <span className="lib-doc-meta">
+                {[s.publisher, s.version].filter(Boolean).join(" · ") || "—"} · {s.clause_count} clauses
+              </span>
+              <span className="lib-doc-tags">
+                <span className={`status ${s.status === "Superseded" ? "superseded" : ""}`}>
+                  <span className="sw" />
+                  {s.status ?? "—"}
+                </span>
+                {s.superseded_by_title && <span className="lib-repl">→ {s.superseded_by_title}</span>}
+              </span>
+            </div>
+          ))
+        )}
       </aside>
 
       {/* Right pane — the clauses */}
       <section className="lib-clauses">
         <div className="lib-head">
           <div>
-            <h2 className="lib-head-title">
-              {selected ? selected.title : "All clauses"}
-            </h2>
-            <p className="lib-head-sub">
-              {selected ? (
-                <>
-                  {[selected.publisher, selected.version].filter(Boolean).join(" · ")}
-                  {selected.status === "Superseded" && selected.superseded_by_title
-                    ? ` · superseded by ${selected.superseded_by_title}`
-                    : ""}
-                </>
-              ) : (
-                "Every clause across all documents, in reading order."
-              )}
-            </p>
+            <h2 className="lib-head-title">{headTitle}</h2>
+            <p className="lib-head-sub">{headSub}</p>
           </div>
-          {selected && (
-            <Link className="lib-review" href={`/review?doc=${encodeURIComponent(selected.id)}`}>
+          {sel.length === 1 && selDocs[0] && (
+            <Link className="lib-review" href={`/review?doc=${encodeURIComponent(selDocs[0].id)}`}>
               Open in Review viewer
             </Link>
           )}
@@ -182,7 +230,7 @@ export function StandardsLibrary({
                     <span className="sw" />
                     {c.obligation_type}
                   </span>
-                  {!doc && (
+                  {sel.length !== 1 && (
                     <span className="sc-std">
                       {c.standard_title}{c.standard_status === "Superseded" ? " · superseded" : ""}
                     </span>

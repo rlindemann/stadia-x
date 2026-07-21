@@ -205,6 +205,7 @@ Only editions that publish per-category matrices get this (currently 2026). The 
 - `ingest/build_graph.py` — `clause_edges`. `ingest/figures.py` — multimodal tables/figures.
 - `ingest/applies_to.py` — parses compliance matrices into `clause_applicability` (§13).
 - `studio/src/app/categories/` + `api/applicability/` — the by-category requirements view.
+- `studio/src/app/standards/` — the unified library: documents (catalogue + supersession) and their clauses in one master-detail view (`StandardsLibrary.tsx`). `/clauses` and `/standards/[id]` redirect here.
 - `studio/eval/` — `pairs.json` (approved), `competency-questions.md`, `run.mjs` (scorer).
 - `db/schema.sql` — `clauses`, `clause_questions`, `clause_edges`, `clause_figures`, `clause_applicability`, all indexes.
 

@@ -10,17 +10,27 @@ const OB_CLASS: Record<string, string> = {
 
 export function AllClauseList({ clauses }: { clauses: AllClauseRow[] }) {
   const [q, setQ] = useState("");
+  const [std, setStd] = useState("");
+
+  // Distinct standards in display order (superseded already sorted last upstream).
+  const standards = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of clauses) if (!seen.has(c.standard_id)) seen.set(c.standard_id, c.standard_title);
+    return [...seen].map(([id, title]) => ({ id, title }));
+  }, [clauses]);
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t) return clauses;
-    return clauses.filter(
-      (c) =>
+    return clauses.filter((c) => {
+      if (std && c.standard_id !== std) return false;
+      if (!t) return true;
+      return (
         c.clause_path.toLowerCase().includes(t) ||
         c.standard_title.toLowerCase().includes(t) ||
-        c.text.toLowerCase().includes(t),
-    );
-  }, [q, clauses]);
+        c.text.toLowerCase().includes(t)
+      );
+    });
+  }, [q, std, clauses]);
 
   return (
     <div className="sc-list">
@@ -31,6 +41,14 @@ export function AllClauseList({ clauses }: { clauses: AllClauseRow[] }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <div className="sel sc-sel">
+          <select value={std} onChange={(e) => setStd(e.target.value)} aria-label="Filter by standard">
+            <option value="">All standards</option>
+            {standards.map((s) => (
+              <option key={s.id} value={s.id}>{s.title}</option>
+            ))}
+          </select>
+        </div>
         <span className="sc-shown">{shown.length} of {clauses.length}</span>
       </div>
 

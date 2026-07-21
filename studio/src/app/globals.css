@@ -394,6 +394,12 @@ h1.title .g { color: var(--accent); }
 .sc-input { flex: 1; font-family: var(--abel); font-size: 14px; color: var(--ink); background: var(--raised);
   border: 1px solid var(--line-2); border-radius: 6px; padding: 9px 12px; }
 .sc-input:focus { outline: 0; border-color: var(--accent); }
+.sc-sel { flex: none; }
+.sc-sel select { font-size: 14px; background: var(--raised); border: 1px solid var(--line-2);
+  border-radius: 6px; padding: 9px 30px 9px 12px; min-width: 200px; }
+.sc-sel select:hover { border-color: var(--ink); }
+.sc-sel select:focus { border-color: var(--accent); }
+.sc-sel::after { right: 12px; }
 .sc-shown { font-family: var(--mono); font-size: 11px; color: var(--faint); flex: none; font-variant-numeric: tabular-nums; }
 .sc-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .sc-item { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 9px 12px;

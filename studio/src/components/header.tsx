@@ -12,7 +12,6 @@ const NAV = [
   { href: "/ask", label: "Ask" },
   { href: "/", label: "Search" },
   { href: "/standards", label: "Standards" },
-  { href: "/clauses", label: "Clauses" },
   { href: "/categories", label: "Categories" },
   { href: "/terms", label: "Terms" },
 ];

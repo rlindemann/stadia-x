@@ -1,11 +1,19 @@
-import { listStandards } from "@/lib/db";
-import { StandardsTable } from "./StandardsTable";
+import { listAllClauses, listStandards } from "@/lib/db";
+import { StandardsLibrary } from "./StandardsLibrary";
 
 export const metadata = { title: "Standards — STADIA-X" };
 export const dynamic = "force-dynamic";
 
-export default async function StandardsPage() {
-  const standards = await listStandards();
+export default async function StandardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ doc?: string }>;
+}) {
+  const [{ doc }, standards, clauses] = await Promise.all([
+    searchParams,
+    listStandards(),
+    listAllClauses(),
+  ]);
   const total = standards.reduce((n, s) => n + s.clause_count, 0);
 
   return (
@@ -13,13 +21,13 @@ export default async function StandardsPage() {
       <div className="page-head">
         <h1 className="page-title">Standards library</h1>
         <p className="page-sub">
-          Every standard and policy document ingested into Stadia-X, with its publisher and clause
-          count. {standards.length} document{standards.length === 1 ? "" : "s"}, {total} clauses indexed.
-          Hover a row to preview its title page; click to browse its clauses.
+          Every document and every clause in one place. Pick a document on the left to focus its
+          clauses, or browse all {total} at once. {standards.length} document
+          {standards.length === 1 ? "" : "s"} indexed.
         </p>
       </div>
 
-      <StandardsTable standards={standards} />
+      <StandardsLibrary standards={standards} clauses={clauses} initialDoc={doc ?? ""} />
     </div>
   );
 }

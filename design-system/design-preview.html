@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DAVE — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Public+Sans:wght@100..900&family=Martian+Mono:wdth,wght@75..112.5,100..800&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+ * TOKEN BLOCK — copied VERBATIM from frontend/src/app/globals.css.
+ *
+ * Do not re-derive these values or convert them to hex. The previous version
+ * of this page hand-copied hexes and drifted: it coloured compliance flags
+ * with the accent instead of alarm, breaking the very rule it was meant to
+ * illustrate. Every colour below is referenced through var(), so this page
+ * cannot silently disagree with the app.
+ *
+ * When globals.css changes, re-copy these two blocks wholesale.
+ * ======================================================================== */
+:root {
+    --radius: 0.125rem;
+
+    --brand: oklch(0.62 0.17 45);
+    --brand-text: oklch(0.545 0.155 42);
+    --brand-foreground: oklch(0.995 0.002 250);
+    --brand-muted: oklch(0.955 0.03 55);
+
+    --alarm: oklch(0.455 0.165 27);
+    --alarm-foreground: oklch(0.99 0.002 250);
+    --verified: oklch(0.525 0.1 158);
+    --warning: oklch(0.68 0.125 85);
+
+    --rule: oklch(0.895 0.005 250);
+    --rule-strong: oklch(0.79 0.007 250);
+
+    --titleblock: oklch(0.208 0.006 250);
+    --titleblock-foreground: oklch(0.93 0.003 250);
+    --titleblock-rule: oklch(1 0 0 / 16%);
+    --titleblock-alarm: oklch(0.7 0.17 30);
+
+    --gray-50: oklch(0.982 0.002 250);
+    --gray-100: oklch(0.968 0.003 250);
+    --gray-200: oklch(0.928 0.004 250);
+    --gray-300: oklch(0.872 0.005 250);
+    --gray-400: oklch(0.722 0.007 250);
+    --gray-500: oklch(0.572 0.008 250);
+    --gray-600: oklch(0.455 0.008 250);
+    --gray-700: oklch(0.378 0.008 250);
+    --gray-800: oklch(0.278 0.007 250);
+    --gray-900: oklch(0.218 0.007 250);
+    --gray-950: oklch(0.152 0.006 250);
+
+    --background: oklch(0.968 0.003 250);
+    --foreground: oklch(0.245 0.008 250);
+    --card: oklch(1 0 0);
+    --muted-foreground: oklch(0.555 0.008 250);
+    --border: oklch(0.895 0.005 250);
+}
+.dark, [data-theme="dark"] {
+    --brand: oklch(0.72 0.17 48);
+    --brand-text: oklch(0.775 0.15 50);
+    --brand-foreground: oklch(0.19 0.005 250);
+    --brand-muted: oklch(0.29 0.05 45);
+
+    --alarm: oklch(0.665 0.17 27);
+    --alarm-foreground: oklch(0.19 0.005 250);
+    --verified: oklch(0.735 0.13 158);
+    --warning: oklch(0.8 0.13 85);
+
+    --rule: oklch(0.325 0.006 250);
+    --rule-strong: oklch(0.425 0.008 250);
+
+    --titleblock: oklch(0.148 0.005 250);
+    --titleblock-foreground: oklch(0.93 0.003 250);
+    --titleblock-rule: oklch(1 0 0 / 14%);
+    --titleblock-alarm: oklch(0.7 0.17 30);
+
+    --gray-50: oklch(0.235 0.005 250);
+    --gray-100: oklch(0.262 0.005 250);
+    --gray-200: oklch(0.298 0.006 250);
+    --gray-300: oklch(0.348 0.007 250);
+    --gray-400: oklch(0.515 0.008 250);
+    --gray-500: oklch(0.632 0.008 250);
+    --gray-600: oklch(0.712 0.008 250);
+    --gray-700: oklch(0.772 0.007 250);
+    --gray-800: oklch(0.862 0.005 250);
+    --gray-900: oklch(0.925 0.004 250);
+    --gray-950: oklch(0.968 0.003 250);
+
+    --background: oklch(0.19 0.005 250);
+    --foreground: oklch(0.945 0.003 250);
+    --card: oklch(0.235 0.005 250);
+    --muted-foreground: oklch(0.655 0.008 250);
+    --border: oklch(0.325 0.006 250);
+}
+
+/* ---- page ---- */
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased}
+body{
+  background:var(--background); color:var(--foreground);
+  font-family:"Public Sans",sans-serif; font-size:14px; line-height:1.35;
+  font-variant-numeric:tabular-nums; padding-bottom:56px;
+}
+.font-display{font-family:Archivo,sans-serif;font-variation-settings:"wdth" 118;
+  font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted-foreground)}
+.font-ident{font-family:"Martian Mono",monospace;font-variation-settings:"wdth" 80}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+section{padding:48px 0;border-bottom:1px solid var(--rule)}
+h2.sec{font-family:Archivo,sans-serif;font-variation-settings:"wdth" 118;font-weight:700;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--foreground);margin-bottom:4px}
+.note{color:var(--muted-foreground);font-size:12.5px;margin-bottom:24px;max-width:66ch}
+
+.mast{border-bottom:1px solid var(--rule-strong);padding:56px 0 40px}
+.mast h1{font-family:Archivo,sans-serif;font-variation-settings:"wdth" 125;
+  font-weight:700;font-size:30px;letter-spacing:.06em;text-transform:uppercase;line-height:1.1}
+.mast p{color:var(--muted-foreground);margin-top:12px;max-width:62ch;font-size:16.5px;line-height:1.7}
+.meta{display:flex;gap:24px;margin-top:24px;flex-wrap:wrap}
+.meta b{display:block;color:var(--foreground);font-weight:500;margin-top:3px;font-size:12.5px}
+
+.toggle{position:fixed;top:16px;right:16px;z-index:50;background:var(--card);
+  border:1px solid var(--rule-strong);border-radius:2px;padding:7px 12px;cursor:pointer;
+  color:var(--foreground);font-family:Archivo,sans-serif;font-variation-settings:"wdth" 118;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.toggle:hover{border-color:var(--brand)}
+
+.spec{border-top:1px solid var(--rule);padding:20px 0;display:grid;
+  grid-template-columns:150px 1fr;gap:28px;align-items:baseline}
+.spec .role em{display:block;font-style:normal;color:var(--muted-foreground);margin-top:5px;
+  line-height:1.5;font-size:11.5px;letter-spacing:0;text-transform:none;
+  font-family:"Public Sans",sans-serif;font-weight:400}
+.scale-row{display:flex;align-items:baseline;gap:20px;padding:9px 0;border-top:1px solid var(--rule)}
+.scale-row .n{width:64px;color:var(--muted-foreground);font-size:11px}
+
+.pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule)}
+.sw{background:var(--card);padding:12px}
+.chip{height:44px;border:1px solid var(--rule-strong);margin-bottom:9px}
+.sw .nm{font-size:11px;font-weight:500}
+.sw .hx{font-size:10px;color:var(--muted-foreground);margin-top:3px}
+
+.btn{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:500;
+  padding:7px 15px;border-radius:2px;cursor:pointer;border:1px solid transparent}
+.btn-p{background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)}
+.btn-s{background:var(--card);color:var(--foreground);border-color:var(--rule-strong)}
+.inp{font-family:inherit;font-size:13px;padding:7px 10px;border-radius:2px;
+  border:1px solid var(--rule-strong);background:var(--card);color:var(--foreground);width:230px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.flag{background:var(--alarm);color:var(--alarm-foreground);padding:5px 9px;font-size:10.5px;
+  font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  font-family:Archivo,sans-serif;font-variation-settings:"wdth" 112}
+.tick{color:var(--verified);font-size:11.5px;font-weight:500}
+.ins{color:var(--brand-text);border-left:1.5px solid var(--brand);padding-left:13px}
+.del{color:var(--muted-foreground);text-decoration:line-through;opacity:.6}
+.prov{font-size:9.5px;color:var(--muted-foreground);letter-spacing:-.01em}
+.prov.un{color:var(--brand-text);border:1px dashed var(--brand);padding:4px 6px;display:inline-block}
+
+.mock{border:1px solid var(--rule-strong);background:var(--card);overflow:hidden}
+.mock-top{display:flex;align-items:center;gap:14px;padding:0 14px;height:38px;
+  border-bottom:1px solid var(--rule);background:var(--gray-50)}
+.rail{width:52px;border-right:1px solid var(--rule);background:var(--gray-50);
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:12px}
+.rail i{width:26px;height:26px;border:1px solid var(--rule-strong);border-radius:2px;display:block}
+.rail i.on{border-color:var(--brand);background:var(--brand-muted)}
+.stage{display:flex;min-height:430px}
+.sheet{flex:1;display:flex;padding:34px 0 34px 42px}
+.doc{width:62ch;max-width:62ch}
+.doc h3{font-family:Archivo,sans-serif;font-variation-settings:"wdth" 118;font-weight:700;
+  font-size:14px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:16px}
+.doc p{font-size:16.5px;line-height:1.7;margin-bottom:15px}
+.margin{width:190px;padding-left:22px;padding-top:44px}
+.mk{margin-bottom:26px;line-height:1.5}
+
+.tb{background:var(--titleblock);color:var(--titleblock-foreground);height:28px;display:flex;
+  align-items:center;padding:0 14px;font-size:10px;letter-spacing:-.01em}
+.tb span{padding-right:14px;margin-right:14px;border-right:1px solid var(--titleblock-rule)}
+.tb span:last-child{border:0}
+.tb .f{color:var(--titleblock-alarm)}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-family:Archivo,sans-serif;font-variation-settings:"wdth" 118;font-weight:600;font-size:10px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground);text-align:left;
+  padding:9px 12px;border-bottom:1px solid var(--rule-strong);background:var(--gray-50);white-space:nowrap}
+td{padding:0 12px;height:30px;border-bottom:1px solid var(--rule);border-right:1px solid var(--rule-strong)}
+td:last-child,th:last-child{border-right:0}
+.num{text-align:right}
+.expbody td{padding:16px 12px 20px;border-right:0;background:var(--brand-muted)}
+.expbody p{font-size:16.5px;line-height:1.7;max-width:62ch}
+tr.sel td{background:var(--brand-muted)}
+.cap{font-size:11.5px;color:var(--muted-foreground);margin-top:10px;max-width:70ch}
+.rule-box{border-left:2px solid var(--rule-strong);padding-left:14px;margin-top:14px}
+.rule-box p{font-size:13px;line-height:1.6;margin-bottom:8px;color:var(--muted-foreground)}
+.rule-box b{color:var(--foreground)}
+</style>
+</head>
+<body>
+<button class="toggle" onclick="const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / Dark</button>
+
+<div class="wrap">
+
+<div class="mast">
+  <div class="font-display" style="margin-bottom:14px">Design System · DAVE</div>
+  <h1>Specification</h1>
+  <p>Industrial, drawing-office derived. The spec book and the title block, not the brochure. Everything serves one thing: <b>&ldquo;I know this is safe to send.&rdquo;</b></p>
+  <div class="meta">
+    <div><span class="font-display">Structural</span><b>Archivo Expanded</b></div>
+    <div><span class="font-display">Body &amp; UI</span><b>Public Sans</b></div>
+    <div><span class="font-display">Identifiers</span><b>Martian Mono</b></div>
+    <div><span class="font-display">Accent</span><b>Surveyor orange</b></div>
+    <div><span class="font-display">Base unit</span><b>4px · compact</b></div>
+    <div><span class="font-display">Radius</span><b>2px controls · 0 panels</b></div>
+  </div>
+  <p style="font-size:12.5px;margin-top:22px;max-width:70ch">Canonical spec: <b>DESIGN.md</b>. Token values: <b>frontend/src/app/globals.css</b>. This page mirrors that token block verbatim and references every colour through <code>var()</code>, so it cannot silently disagree with the app.</p>
+</div>
+
+<section>
+  <h2 class="sec">01 — Typography</h2>
+  <p class="note">Three families, one job each. Mono is for identifiers, not numbers: tabular figures in a proportional face align just as well and read better in columns.</p>
+
+  <div class="spec">
+    <div class="role font-display">Structural<em>Archivo Expanded, caps, +0.08em. Small labels only — never running text.</em></div>
+    <div>
+      <div style="font-family:Archivo;font-variation-settings:'wdth' 125;font-weight:700;font-size:30px;letter-spacing:.06em;text-transform:uppercase">Design &amp; Access</div>
+      <div class="font-display" style="margin-top:14px">Compliance · Section 04 · Revision C</div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="role font-display">Body &amp; UI<em>Public Sans. Built for forms and tables read for eight hours. Narrower than Inter, so more grid columns fit.</em></div>
+    <div>
+      <p style="font-size:16.5px;line-height:1.7;max-width:62ch">The proposed development responds to the prevailing eaves line of the terrace, stepping back at third-floor level to preserve the established roofscape when viewed from the conservation area boundary.</p>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="role font-display">Identifiers<em>Martian Mono, semi-condensed — long references survive a 30px table cell.</em></div>
+    <div class="font-ident" style="font-size:12.5px;line-height:2">
+      DAS-04 / REV C<br>PQQ-2019 4.2 · BREEAM-EXCELLENT<br>PRACTICE-BOILERPLATE · MODEL
+    </div>
+  </div>
+
+  <div style="margin-top:36px">
+    <div class="font-display" style="margin-bottom:8px">Scale — six steps, no in-betweens</div>
+    <div class="scale-row"><span class="n font-ident">11</span><span class="font-display">Structural labels &amp; column headers</span></div>
+    <div class="scale-row"><span class="n font-ident">12.5</span><span style="font-size:12.5px">Dense table content, secondary metadata</span></div>
+    <div class="scale-row"><span class="n font-ident">14</span><span style="font-size:14px">Default UI text, buttons, inputs</span></div>
+    <div class="scale-row"><span class="n font-ident">16.5</span><span style="font-size:16.5px">Document canvas — line height 1.7</span></div>
+    <div class="scale-row"><span class="n font-ident">21</span><span style="font-size:21px">Sub-headings</span></div>
+    <div class="scale-row"><span class="n font-ident">30</span><span style="font-size:30px;font-family:Archivo;font-variation-settings:'wdth' 125;font-weight:700;letter-spacing:.05em;text-transform:uppercase">Page title</span></div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sec">02 — Colour</h2>
+  <p class="note">Cool graphite base (hue 250°) so the single orange accent is the only thing on screen with chroma. Toggle the theme, top right — both are designed, not derived. Swatches render the live token, so what you see is what the app uses.</p>
+  <div class="pal">
+    <div class="sw"><div class="chip" style="background:var(--background)"></div><div class="nm">background</div><div class="hx font-ident">--background</div></div>
+    <div class="sw"><div class="chip" style="background:var(--card)"></div><div class="nm">card</div><div class="hx font-ident">--card</div></div>
+    <div class="sw"><div class="chip" style="background:var(--foreground)"></div><div class="nm">foreground</div><div class="hx font-ident">--foreground</div></div>
+    <div class="sw"><div class="chip" style="background:var(--muted-foreground)"></div><div class="nm">muted</div><div class="hx font-ident">--muted-foreground</div></div>
+    <div class="sw"><div class="chip" style="background:var(--rule)"></div><div class="nm">rule</div><div class="hx font-ident">--rule</div></div>
+    <div class="sw"><div class="chip" style="background:var(--rule-strong)"></div><div class="nm">rule-strong</div><div class="hx font-ident">--rule-strong</div></div>
+    <div class="sw"><div class="chip" style="background:var(--brand)"></div><div class="nm">brand</div><div class="hx font-ident">--brand</div></div>
+    <div class="sw"><div class="chip" style="background:var(--brand-text)"></div><div class="nm">brand-text · AA</div><div class="hx font-ident">--brand-text</div></div>
+    <div class="sw"><div class="chip" style="background:var(--brand-muted)"></div><div class="nm">brand-muted</div><div class="hx font-ident">--brand-muted</div></div>
+    <div class="sw"><div class="chip" style="background:var(--alarm)"></div><div class="nm">alarm · compliance only</div><div class="hx font-ident">--alarm</div></div>
+    <div class="sw"><div class="chip" style="background:var(--verified)"></div><div class="nm">verified</div><div class="hx font-ident">--verified</div></div>
+    <div class="sw"><div class="chip" style="background:var(--warning)"></div><div class="nm">warning</div><div class="hx font-ident">--warning</div></div>
+    <div class="sw"><div class="chip" style="background:var(--titleblock)"></div><div class="nm">titleblock</div><div class="hx font-ident">--titleblock</div></div>
+    <div class="sw"><div class="chip" style="background:var(--titleblock-alarm)"></div><div class="nm">titleblock-alarm</div><div class="hx font-ident">--titleblock-alarm</div></div>
+  </div>
+
+  <div class="rule-box">
+    <p><b>Red is reserved for compliance failure</b> on the document and review surfaces — missing mandatory response, word-count breach, unanswered tender question. Never for deletions, never decoratively. Chrome-level destructive actions keep conventional red; the rule protects a context, not a hex value.</p>
+    <p><b>Unsourced is marked by form, not by red.</b> A dashed accent outline. Unsourced is unverified, not failed.</p>
+    <p><b>Accent never fills a block; alarm always does.</b> The two are adjacent hues, separated by lightness and by form, and never appear in the same component.</p>
+    <p><b>Redlines are not red/green.</b> An AI deletion is not an error and an insertion is not a success — they are proposals.</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="sec">03 — Components</h2>
+  <div class="row">
+    <button class="btn btn-p">Accept all edits</button>
+    <button class="btn btn-s">Reject</button>
+    <input class="inp" placeholder="Search this document">
+  </div>
+  <div class="row">
+    <span class="flag">3 compliance flags</span>
+    <span class="flag">Word count breach</span>
+    <span class="tick">✓ Sourced · practice boilerplate</span>
+  </div>
+  <div class="row">
+    <span class="prov font-ident">PQQ-2019 4.2 p.7</span>
+    <span class="prov font-ident">PRACTICE-BOILERPLATE</span>
+    <span class="prov un font-ident">MODEL — UNSOURCED</span>
+  </div>
+  <div class="row" style="margin-bottom:0">
+    <span style="font-size:16.5px" class="ins">AI insertion — accent, 1.5px rule</span>
+    <span style="font-size:16.5px" class="del">AI deletion — muted, struck, recedes</span>
+  </div>
+</section>
+
+<section>
+  <h2 class="sec">04 — Document canvas</h2>
+  <p class="note">The deliverable owns the screen. Text sits left at a 62–68ch measure; the right margin is a designed provenance surface, not leftover space. The bottom title block answers &ldquo;safe to send?&rdquo; permanently, without a click.</p>
+
+  <div class="mock">
+    <div class="mock-top">
+      <span class="font-display" style="color:var(--foreground)">Riverside Mills</span>
+      <span class="font-ident" style="font-size:10px;color:var(--muted-foreground)">DAS-04 / REV C</span>
+      <span style="flex:1"></span>
+      <span class="flag">3 flags</span>
+    </div>
+    <div class="stage">
+      <div class="rail"><i class="on"></i><i></i><i></i></div>
+      <div class="sheet">
+        <div class="doc">
+          <h3>4.2 — Access &amp; Movement</h3>
+          <p>Vehicular access is retained from Mill Lane, with the existing crossover widened to 5.5m to accommodate refuse and emergency vehicles in accordance with the adopted highways standard.</p>
+          <p class="ins">Pedestrian access has been reconfigured to provide a level threshold at the principal entrance, achieving step-free approach from the public footway in line with Part M4(2).</p>
+          <p><span class="del">Cycle parking is provided at grade to the rear.</span> Secure cycle parking for 48 spaces is provided within the undercroft, exceeding the minimum standard by 12 spaces.</p>
+        </div>
+        <div class="margin">
+          <div class="mk prov font-ident">PQQ-2019 4.2 p.7</div>
+          <div class="mk prov font-ident">PART-M4(2)</div>
+          <div class="mk"><span class="prov un font-ident">MODEL — UNSOURCED</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="tb font-ident">
+      <span>DAS-04</span><span>REV C</span><span>4,120 / 5,000 WORDS</span>
+      <span>12 OPEN REDLINES</span><span class="f">3 COMPLIANCE FLAGS</span><span>SYNCED 14:07</span>
+    </div>
+  </div>
+  <p class="cap">Every AI-authored span carries a permanent source marker. Unsourced text is always visually distinct. No confidence percentages — source or no source.</p>
+</section>
+
+<section style="border-bottom:0">
+  <h2 class="sec">05 — Tabular review</h2>
+  <p class="note">The grid and the canvas are the same object at two zoom levels. Clicking a cell expands the row in place into the source — so you never lose your position in a 400-row extraction.</p>
+
+  <div class="mock">
+    <table>
+      <thead><tr>
+        <th style="width:150px">Bidder</th><th>Fee basis</th><th class="num">Fee</th>
+        <th>RIBA stage</th><th>Compliance</th><th style="width:110px">Source</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Halstead &amp; Co</td><td>Percentage</td><td class="num">£248,000</td><td>3</td><td><span class="tick">✓ Complete</span></td><td class="font-ident" style="font-size:10px;color:var(--muted-foreground)">TEN-14 p.22</td></tr>
+        <tr class="sel"><td>Marlow Partnership</td><td>Lump sum</td><td class="num">£226,500</td><td>3</td><td><span class="flag">Missing</span></td><td class="font-ident" style="font-size:10px;color:var(--muted-foreground)">TEN-09 p.7</td></tr>
+        <tr class="expbody"><td colspan="6">
+          <div class="font-display" style="margin-bottom:9px">Compliance status — TEN-09 Marlow Partnership</div>
+          <p>Missing mandatory response</p>
+          <div class="rule-box" style="margin-top:12px">
+            <div class="font-ident" style="font-size:9.5px;color:var(--muted-foreground);margin-bottom:6px">TEN-09 p.7</div>
+            <p>The fee proposal is offered as a lump sum inclusive of all disbursements to the end of Stage 3 only, with Stage 4 onwards subject to separate appointment.</p>
+          </div>
+        </td></tr>
+        <tr><td>Ashcroft Design</td><td>Percentage</td><td class="num">£271,200</td><td>4</td><td><span class="tick">✓ Complete</span></td><td class="font-ident" style="font-size:10px;color:var(--muted-foreground)">TEN-21 p.14</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">30px rows, no zebra striping, 1px vertical rules, tabular right-aligned numerics, sticky Archivo caps header. Stripes are a crutch for bad rules.</p>
+</section>
+
+</div>
+</body>
+</html>

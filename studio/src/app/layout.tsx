@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Abel, Source_Code_Pro } from "next/font/google";
+import { Archivo, Martian_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 
-const abel = Abel({ weight: "400", subsets: ["latin"], variable: "--font-abel", display: "swap" });
-const scp = Source_Code_Pro({ subsets: ["latin"], variable: "--font-scp", display: "swap" });
+// Three families, one job each — see /DESIGN.md § Typography.
+// Public Sans: body + UI. Archivo (wdth axis): structural caps labels.
+// Martian Mono: identifiers — clause paths, standard codes, provenance.
+const publicSans = Public_Sans({ subsets: ["latin"], variable: "--font-public-sans", display: "swap" });
+const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
+const martianMono = Martian_Mono({ subsets: ["latin"], variable: "--font-martian-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "STADIA-X — Standards Query",
@@ -15,7 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${abel.variable} ${scp.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${publicSans.variable} ${archivo.variable} ${martianMono.variable}`}
+    >
       <body>
         <ThemeProvider>
           <Header />

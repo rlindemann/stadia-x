@@ -1,0 +1,195 @@
+/* ===========================================================================
+ * DAVE design tokens — "Specification".
+ *
+ * THE SINGLE SOURCE OF TRUTH for every brand value. Plain CSS custom
+ * properties: no build step, no framework, no preprocessor. Works in any
+ * project that can load a stylesheet.
+ *
+ * The app imports this file (frontend/src/app/globals.css) rather than
+ * redeclaring the values, so there is exactly one definition and nothing can
+ * drift. preview.html links it too, so the reference page always renders the
+ * live palette.
+ *
+ * To rebrand: edit this file and nothing else.
+ *
+ * Two ramps are deliberate overrides of Tailwind's defaults. They only matter
+ * if you use Tailwind; in a plain project they are simply unused variables.
+ *   --gray-*  cools the neutral ramp to hue 250. The app has ~1600 hardcoded
+ *             gray-* classes across 68 components; overriding the ramp
+ *             re-skins all of them at once instead of editing every file.
+ *   --blue-*  the legacy accent name. Every blue-* class resolves to surveyor
+ *             orange, so the accent unified without touching call sites. New
+ *             work should use --brand, not --blue-600.
+ *
+ * See DESIGN.md for what these mean and the rules governing their use.
+ * ======================================================================== */
+
+:root {
+    /* 2px. Sharp corners are the point. Controls only — panels, table cells
+     * and rules are square (radius 0). Was 0.625rem (10px), then 0.25rem. */
+    --radius: 0.125rem;
+
+    /* Brand accent — surveyor's orange.
+     * --brand is the fill/UI value; --brand-text is the darker cut that meets
+     * AA on a white surface and MUST be used for links and body-weight text. */
+    --brand: oklch(0.62 0.17 45);
+    --brand-text: oklch(0.545 0.155 42);
+    --brand-foreground: oklch(0.995 0.002 250);
+    --brand-muted: oklch(0.955 0.03 55);
+
+    /* Verification semantics. alarm = compliance failure ONLY. */
+    --alarm: oklch(0.455 0.165 27);
+    --alarm-foreground: oklch(0.99 0.002 250);
+    --verified: oklch(0.525 0.1 158);
+    --warning: oklch(0.68 0.125 85);
+
+    /* Hairline rules — hierarchy comes from these, not from shadows. */
+    --rule: oklch(0.895 0.005 250);
+    --rule-strong: oklch(0.79 0.007 250);
+
+    /* Title block — graphite in both themes. See the @theme note above. */
+    --titleblock: oklch(0.208 0.006 250);
+    --titleblock-foreground: oklch(0.93 0.003 250);
+    --titleblock-rule: oklch(1 0 0 / 16%);
+    --titleblock-alarm: oklch(0.7 0.17 30);
+
+    /* Accent ramp (light). Carried by the blue-* legacy classes, which now
+     * resolve to orange. The name is legacy; the colour is the brand. */
+    --blue-50: oklch(0.972 0.016 55);
+    --blue-100: oklch(0.945 0.036 52);
+    --blue-200: oklch(0.888 0.068 50);
+    --blue-300: oklch(0.8 0.108 48);
+    --blue-400: oklch(0.7 0.148 46);
+    --blue-500: oklch(0.655 0.162 45);
+    --blue-700: oklch(0.545 0.155 42);
+    --blue-800: oklch(0.462 0.128 40);
+    --blue-900: oklch(0.392 0.098 38);
+
+    /* Neutral ramp (light), cooled to hue 250. Carried by the gray-* classes. */
+    --gray-50: oklch(0.982 0.002 250);
+    --gray-100: oklch(0.968 0.003 250);
+    --gray-200: oklch(0.928 0.004 250);
+    --gray-300: oklch(0.872 0.005 250);
+    --gray-400: oklch(0.722 0.007 250);
+    --gray-500: oklch(0.572 0.008 250);
+    --gray-600: oklch(0.455 0.008 250);
+    --gray-700: oklch(0.378 0.008 250);
+    --gray-800: oklch(0.278 0.007 250);
+    --gray-900: oklch(0.218 0.007 250);
+    --gray-950: oklch(0.152 0.006 250);
+
+    --background: oklch(0.968 0.003 250);
+    --foreground: oklch(0.245 0.008 250);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.245 0.008 250);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.245 0.008 250);
+    --primary: oklch(0.245 0.008 250);
+    --primary-foreground: oklch(0.99 0.002 250);
+    --secondary: oklch(0.968 0.003 250);
+    --secondary-foreground: oklch(0.218 0.007 250);
+    --muted: oklch(0.968 0.003 250);
+    --muted-foreground: oklch(0.555 0.008 250);
+    --accent: oklch(0.968 0.003 250);
+    --accent-foreground: oklch(0.218 0.007 250);
+    --destructive: oklch(0.455 0.165 27);
+    --border: oklch(0.895 0.005 250);
+    --input: oklch(0.895 0.005 250);
+    --ring: oklch(0.62 0.17 45);
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
+    --sidebar: oklch(0.968 0.003 250);
+    --sidebar-foreground: oklch(0.245 0.008 250);
+    --sidebar-primary: oklch(0.218 0.007 250);
+    --sidebar-primary-foreground: oklch(0.99 0.002 250);
+    --sidebar-accent: oklch(0.945 0.004 250);
+    --sidebar-accent-foreground: oklch(0.218 0.007 250);
+    --sidebar-border: oklch(0.895 0.005 250);
+    --sidebar-ring: oklch(0.62 0.17 45);
+}
+
+.dark {
+    /* Graphite, not black. Both themes are designed, not derived. */
+    --brand: oklch(0.72 0.17 48);
+    --brand-text: oklch(0.775 0.15 50);
+    --brand-foreground: oklch(0.19 0.005 250);
+    --brand-muted: oklch(0.29 0.05 45);
+
+    --alarm: oklch(0.665 0.17 27);
+    --alarm-foreground: oklch(0.19 0.005 250);
+    --verified: oklch(0.735 0.13 158);
+    --warning: oklch(0.8 0.13 85);
+
+    --rule: oklch(0.325 0.006 250);
+    --rule-strong: oklch(0.425 0.008 250);
+
+    /* Slightly darker than the dark surface so the bar still reads as a
+     * distinct edge rather than blending into the panel behind it. */
+    --titleblock: oklch(0.148 0.005 250);
+    --titleblock-foreground: oklch(0.93 0.003 250);
+    --titleblock-rule: oklch(1 0 0 / 14%);
+    --titleblock-alarm: oklch(0.7 0.17 30);
+
+    /* Accent ramp, INVERTED for dark. Light tints -> dark orange surfaces;
+     * dark accent oranges -> light. Chroma kept so the accent still reads. */
+    --blue-50: oklch(0.278 0.045 45);
+    --blue-100: oklch(0.322 0.058 46);
+    --blue-200: oklch(0.388 0.078 47);
+    --blue-300: oklch(0.472 0.102 47);
+    --blue-400: oklch(0.615 0.142 48);
+    --blue-500: oklch(0.688 0.162 48);
+    --blue-700: oklch(0.775 0.15 50);
+    --blue-800: oklch(0.842 0.115 52);
+    --blue-900: oklch(0.898 0.078 55);
+
+    /* Neutral ramp, INVERTED for dark. gray-50 (lightest surface in light
+     * mode) becomes the darkest; gray-900 (dark text / strong button bg)
+     * becomes near-white. Cool hue preserved. Every hardcoded bg/text/
+     * border-gray-* flips automatically through these. */
+    --gray-50: oklch(0.235 0.005 250);
+    --gray-100: oklch(0.262 0.005 250);
+    --gray-200: oklch(0.298 0.006 250);
+    --gray-300: oklch(0.348 0.007 250);
+    --gray-400: oklch(0.515 0.008 250);
+    --gray-500: oklch(0.632 0.008 250);
+    --gray-600: oklch(0.712 0.008 250);
+    --gray-700: oklch(0.772 0.007 250);
+    --gray-800: oklch(0.862 0.005 250);
+    --gray-900: oklch(0.925 0.004 250);
+    --gray-950: oklch(0.968 0.003 250);
+
+    --background: oklch(0.19 0.005 250);
+    --foreground: oklch(0.945 0.003 250);
+    --card: oklch(0.235 0.005 250);
+    --card-foreground: oklch(0.945 0.003 250);
+    --popover: oklch(0.275 0.006 250);
+    --popover-foreground: oklch(0.945 0.003 250);
+    --primary: oklch(0.945 0.003 250);
+    --primary-foreground: oklch(0.222 0.005 250);
+    --secondary: oklch(0.275 0.006 250);
+    --secondary-foreground: oklch(0.945 0.003 250);
+    --muted: oklch(0.275 0.006 250);
+    --muted-foreground: oklch(0.655 0.008 250);
+    --accent: oklch(0.275 0.006 250);
+    --accent-foreground: oklch(0.945 0.003 250);
+    --destructive: oklch(0.665 0.17 27);
+    --border: oklch(0.325 0.006 250);
+    --input: oklch(0.395 0.008 250);
+    --ring: oklch(0.72 0.17 48);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.212 0.005 250);
+    --sidebar-foreground: oklch(0.945 0.003 250);
+    --sidebar-primary: oklch(0.945 0.003 250);
+    --sidebar-primary-foreground: oklch(0.222 0.005 250);
+    --sidebar-accent: oklch(0.275 0.006 250);
+    --sidebar-accent-foreground: oklch(0.945 0.003 250);
+    --sidebar-border: oklch(0.325 0.006 250);
+    --sidebar-ring: oklch(0.72 0.17 48);
+}

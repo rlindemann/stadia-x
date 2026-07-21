@@ -71,6 +71,7 @@ function palette() {
     accent: g("--accent"), accent2: g("--accent-2"), wash: g("--accent-wash"),
     shall: g("--shall"), should: g("--should"), may: g("--may"),
     ink: g("--ink"), raised: g("--raised"), line2: g("--line-2"),
+    ident: g("--ident"),
   };
 }
 
@@ -78,7 +79,7 @@ function buildStyle(p: ReturnType<typeof palette>): cytoscape.StylesheetJson {
   return [
     { selector: "node", style: {
       width: 14, height: 14, "background-color": p.raised, "border-color": p.line2, "border-width": 2,
-      label: "data(label)", "font-family": "monospace", "font-size": 9, color: p.ink,
+      label: "data(label)", "font-family": p.ident, "font-size": 9, color: p.ink,
       "text-halign": "right", "text-valign": "center", "text-margin-x": 3, "min-zoomed-font-size": 7,
     } },
     { selector: "node[expanded = 1]", style: { "background-color": p.wash, "border-color": p.accent2 } },
@@ -87,7 +88,9 @@ function buildStyle(p: ReturnType<typeof palette>): cytoscape.StylesheetJson {
     { selector: ".dim", style: { opacity: 0.15 } },
     { selector: "edge", style: { width: 1.6, "curve-style": "bezier", "line-color": p.may, opacity: 0.7 } },
     { selector: 'edge[type = "reference"]', style: { "line-color": p.accent2 } },
-    { selector: 'edge[type = "supersedes"]', style: { "line-color": p.shall } },
+    // A supersedes *edge* is a relationship, not a risk state — amber, not red.
+    // The red treatment belongs on the superseded document itself (.tag-super).
+    { selector: 'edge[type = "supersedes"]', style: { "line-color": p.should } },
     { selector: 'edge[type = "defines_term"]', style: { "line-color": p.should } },
     { selector: 'edge[type = "similar"]', style: { "line-color": p.may, width: 1, opacity: 0.4 } },
     { selector: "edge.dim", style: { opacity: 0.05 } },

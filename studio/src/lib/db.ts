@@ -981,15 +981,16 @@ export type AllClauseRow = {
   standard_title: string;
   standard_status: string | null;
   obligation_type: string;
+  block_type: string | null;
   page: number;
   text: string;
 };
 
-// Every clause across every published standard, for the global /clauses browse page.
+// Every clause across every published standard, for the unified library browse view.
 export function listAllClauses(): Promise<AllClauseRow[]> {
   return query<AllClauseRow>(
     `select c.id, c.clause_path, c.standard_id, s.title as standard_title, s.status as standard_status,
-            c.obligation_type, c.page, left(c.verbatim_text, 160) as text
+            c.obligation_type, c.block_type, c.page, left(c.verbatim_text, 160) as text
      from clauses c join standards s on s.id = c.standard_id
      where ${PUBLISHED}
      order by s.status = 'Superseded', s.title, c.pdf_file_page, c.id`,

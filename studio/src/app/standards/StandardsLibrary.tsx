@@ -8,6 +8,24 @@ const OB_CLASS: Record<string, string> = {
   requirement: "shall", recommendation: "should", permission: "may", informative: "info",
 };
 
+// Raw block_type -> browsable group. Definitions carry the ◆ marker instead of a tag.
+const GROUP_OF: Record<string, string> = {
+  paragraph: "paragraph", heading: "heading", section: "heading",
+  table: "table", definition: "definition", list_item: "list", list: "list",
+};
+const KINDS = [
+  { key: "", label: "All types" },
+  { key: "paragraph", label: "Paragraphs" },
+  { key: "heading", label: "Headings" },
+  { key: "table", label: "Tables" },
+  { key: "definition", label: "Definitions" },
+  { key: "list", label: "Lists" },
+];
+// Short tag shown on the row (paragraph is the norm, definition uses ◆ — neither gets a tag).
+const TYPE_TAG: Record<string, string> = {
+  heading: "heading", section: "section", table: "table", list_item: "list", list: "list",
+};
+
 export function StandardsLibrary({
   standards,
   clauses,
@@ -18,6 +36,7 @@ export function StandardsLibrary({
   initialDoc?: string;
 }) {
   const [doc, setDoc] = useState(initialDoc);
+  const [kind, setKind] = useState("");
   const [q, setQ] = useState("");
   const [hover, setHover] = useState<StandardRow | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -25,10 +44,24 @@ export function StandardsLibrary({
   const totalClauses = clauses.length;
   const selected = standards.find((s) => s.id === doc) ?? null;
 
+  // Clauses in the selected document (before type/text filters) — drives the type-chip counts.
+  const docFiltered = useMemo(
+    () => clauses.filter((c) => !doc || c.standard_id === doc),
+    [clauses, doc],
+  );
+  const kindCounts = useMemo(() => {
+    const m: Record<string, number> = { "": docFiltered.length };
+    for (const c of docFiltered) {
+      const g = GROUP_OF[c.block_type ?? ""] ?? "paragraph";
+      m[g] = (m[g] ?? 0) + 1;
+    }
+    return m;
+  }, [docFiltered]);
+
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return clauses.filter((c) => {
-      if (doc && c.standard_id !== doc) return false;
+    return docFiltered.filter((c) => {
+      if (kind && (GROUP_OF[c.block_type ?? ""] ?? "paragraph") !== kind) return false;
       if (!t) return true;
       return (
         c.clause_path.toLowerCase().includes(t) ||
@@ -36,7 +69,7 @@ export function StandardsLibrary({
         c.text.toLowerCase().includes(t)
       );
     });
-  }, [q, doc, clauses]);
+  }, [q, kind, docFiltered]);
 
   return (
     <div className="lib">
@@ -114,7 +147,24 @@ export function StandardsLibrary({
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <span className="sc-shown">{shown.length} of {doc ? selected?.clause_count ?? totalClauses : totalClauses}</span>
+          <span className="sc-shown">{shown.length} of {docFiltered.length}</span>
+        </div>
+
+        <div className="lib-kinds">
+          {KINDS.map((k) => {
+            const n = kindCounts[k.key] ?? 0;
+            if (k.key && n === 0) return null;
+            return (
+              <button
+                type="button"
+                key={k.key || "all"}
+                className={`lib-kind${kind === k.key ? " on" : ""}`}
+                onClick={() => setKind(k.key)}
+              >
+                {k.label} <span className="lib-kind-n">{n}</span>
+              </button>
+            );
+          })}
         </div>
 
         {shown.length === 0 ? (
@@ -125,6 +175,9 @@ export function StandardsLibrary({
               <li key={c.id}>
                 <Link href={`/clause/${c.id}`} className="sc-item">
                   <span className="sc-path">{c.clause_path.replace(/^DEF-/, "◆ ")}</span>
+                  {TYPE_TAG[c.block_type ?? ""] && (
+                    <span className="sc-type">{TYPE_TAG[c.block_type ?? ""]}</span>
+                  )}
                   <span className={`ob ${OB_CLASS[c.obligation_type] ?? "info"}`}>
                     <span className="sw" />
                     {c.obligation_type}

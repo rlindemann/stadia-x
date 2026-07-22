@@ -26,10 +26,14 @@ export function Header() {
   const pathname = usePathname();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const [open, setOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  // Close the More menu on navigation and on outside click.
-  useEffect(() => setOpen(false), [pathname]);
+  // Close both menus on navigation and the More menu on outside click.
+  useEffect(() => {
+    setOpen(false);
+    setNavOpen(false);
+  }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -50,7 +54,7 @@ export function Header() {
             Stadia<b>-X</b>
           </span>
         </Link>
-        <nav className="nav">
+        <nav className={`nav${navOpen ? " nav-open" : ""}`}>
           {NAV.map((item) => (
             <Link key={item.href} href={item.href} className={isActive(item.href) ? "on" : undefined}>
               {item.label}
@@ -82,8 +86,19 @@ export function Header() {
             )}
           </div>
           <ClauseJump />
-          <ThemeToggle />
         </nav>
+        <div className="head-right">
+          <button
+            type="button"
+            className={`nav-toggle${navOpen ? " on" : ""}`}
+            aria-label="Menu"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((v) => !v)}
+          >
+            <span /><span /><span />
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

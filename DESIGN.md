@@ -148,9 +148,17 @@ Both themes are designed, not derived. Dark is graphite, not black. Full values 
 6. **Archivo is small caps labels only.** Extended caps are illegible at any length. Never
    for running text, never above 30px.
 
-7. **Accent never fills a block; alarm always does.** Accent and alarm are adjacent hues
-   separated by lightness (0.62 vs 0.455) and by form. They must never appear in the same
-   component.
+7. **Accent fills interactive controls; alarm fills status.** Accent (orange) is the action
+   colour: it fills buttons, active chips, active pills and toggles — the things you click.
+   It never fills a passive content block or a background sitting behind body text. Alarm is
+   the one that fills status blocks. Accent and alarm are adjacent hues separated by
+   lightness (0.62 vs 0.455) and by role; they must never appear in the same component.
+
+8. **Colour that carries meaning meets WCAG AA (4.5:1) as text.** Amber has two cuts:
+   `--should` for fills (swatches, badges, bars) and `--should-text` for text, which is
+   darkened in light mode to pass. `--faint` is a de-emphasis tier, not a text-contrast
+   escape hatch — it clears AA-large only, so never set essential content in it below the
+   large-text size. This mirrors the `--accent` / `--accent-2` split.
 
 ## Spacing
 
@@ -227,3 +235,5 @@ and ended up breaking the very rule it was meant to illustrate.
 | 2026-07-21 | Type scale collapsed from 21 sizes to 6 | Six steps, no in-betweens. The scale is the system. |
 | 2026-07-21 | Radius: 2px controls, 0 panels | Sharp corners are the point. |
 | 2026-07-21 | Transitions normalized to 90ms, one easing curve | Two durations only; 49 transitions were on four different values. |
+| 2026-07-22 | Accessibility pass: `--should-text` cut added, `--faint` darkened | Amber text was 2.91:1 and faint labels 2.88:1 on white — both failed WCAG AA. Amber now splits fill/text like accent does. |
+| 2026-07-22 | Rule 7 rewritten; rule 8 (contrast) added | Ported DAVE rule banned accent fills, but orange buttons are the action colour. Rule now describes the real invariant. |

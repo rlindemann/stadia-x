@@ -418,11 +418,12 @@ h1.title .g { color: var(--accent); }
 /* ---------------- Search: button + example chips ---------------- */
 .searchbar .search-btn {
   flex: none; font-family: var(--ui); font-size: 14px; letter-spacing: .06em;
-  font-family: var(--display); font-variation-settings: "wdth" 118; text-transform: uppercase; color: var(--raised); background: var(--accent);
+  font-family: var(--display); font-variation-settings: "wdth" 118; text-transform: uppercase; color: var(--raised); background: var(--accent-2);
   border: 0; padding: 10px 20px; margin: 8px 0 8px 6px; cursor: pointer;
   transition: background 90ms, opacity 90ms;
 }
-.searchbar .search-btn:hover { background: var(--accent-2); }
+/* White label on orange: use --accent-2 (5.3:1), not --accent (3.9, fails AA). */
+.searchbar .search-btn:hover { background: color-mix(in srgb, var(--accent-2) 86%, black); }
 .searchbar .search-btn:disabled { opacity: .4; cursor: default; }
 
 .chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -433,8 +434,8 @@ h1.title .g { color: var(--accent); }
   transition: border-color 90ms, color 90ms;
 }
 .chip:hover { border-color: var(--accent); color: var(--accent-2); }
-.chip.on { border-color: var(--accent); color: var(--raised); background: var(--accent); }
-.chip.on:hover { background: var(--accent-2); color: var(--raised); }
+.chip.on { border-color: var(--accent-2); color: var(--raised); background: var(--accent-2); }
+.chip.on:hover { background: color-mix(in srgb, var(--accent-2) 86%, black); color: var(--raised); }
 
 /* ---------------- Search: facet filters ---------------- */
 .facets { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -587,7 +588,7 @@ h1.title .g { color: var(--accent); }
 .cat-pill { font-family: var(--ident); font-size: 12.5px; color: var(--ink-2); background: var(--raised);
   border: 1px solid var(--line-2); border-radius: 2px; padding: 6px 14px; cursor: pointer; transition: all 90ms; }
 .cat-pill:hover:not(:disabled) { border-color: var(--accent); }
-.cat-pill.on { background: var(--accent); border-color: var(--accent); color: var(--raised); }
+.cat-pill.on { background: var(--accent-2); border-color: var(--accent-2); color: var(--raised); }
 .cat-pill:disabled { opacity: .35; cursor: not-allowed; }
 .cat-lead { font-size: 14px; color: var(--muted); margin: 14px 0 22px; max-width: 68ch; }
 .cat-lead b { color: var(--ink); }
@@ -662,7 +663,7 @@ a.cat-ref:hover { border-bottom: 1px solid var(--accent); }
 .save-new { display: flex; gap: 6px; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
 .save-new input { flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--line-2); background: var(--panel); color: var(--ink); }
 .save-new input:focus { outline: 0; border-color: var(--accent); }
-.save-new button { font-family: var(--display); font-variation-settings: "wdth" 118; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--raised); background: var(--accent); border: 0; padding: 0 10px; cursor: pointer; }
+.save-new button { font-family: var(--display); font-variation-settings: "wdth" 118; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--raised); background: var(--accent-2); border: 0; padding: 0 10px; cursor: pointer; }
 .save-new button:disabled { opacity: .4; cursor: default; }
 .src-save { margin-left: auto; }
 

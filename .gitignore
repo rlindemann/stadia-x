@@ -33,3 +33,4 @@ Thumbs.db
 
 # extracted review bundles (source PDFs + regenerable data)
 studio/public/extractions/
+.gstack/
